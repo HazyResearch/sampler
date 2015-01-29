@@ -10,6 +10,15 @@ dd::InferenceResult::InferenceResult(long _nvars, long _nweights):
   weight_values(new double [_nweights]),
   weights_isfixed(new bool [_nweights]) {}
 
+dd::InferenceResult::~InferenceResult() {
+  delete[] agg_nsamples;
+  delete[] agg_means;
+  delete[] assignments_free;
+  delete[] assignments_evid;
+  delete[] weight_values;
+  delete[] weights_isfixed[];
+}
+
 void dd::InferenceResult::init(Variable * variables, Weight * const weights){
 
   ntallies = 0;

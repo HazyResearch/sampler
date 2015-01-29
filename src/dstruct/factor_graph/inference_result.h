@@ -29,6 +29,7 @@ namespace dd {
     bool * const weights_isfixed; // array of whether weight is fixed
 
     InferenceResult(long _nvars, long _nweights);
+    ~InferenceResult();
 
     /**
      * Initialize the class with given variables and weights
