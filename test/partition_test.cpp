@@ -17,4 +17,14 @@ TEST(PartitionTest, variables) {
 	read_variables("./test/partition/graph.variables.part0", fg);
 	read_variables("./test/partition/graph.variables.part1", fg);
 	read_variables("./test/partition/graph.variables.part2", fg);
+
+	partition.partition_factors("./test/partition/graph.factors");
+	read_factors("./test/partition/graph.factors.part0", fg);
+	read_factors("./test/partition/graph.factors.part1", fg);
+	read_factors("./test/partition/graph.factors.part2", fg);
+
+	partition.partition_edges("./test/partition/graph.edges");
+	read_edges("./test/partition/graph.edges.part0", fg);
+	read_edges("./test/partition/graph.edges.part1", fg);
+	read_edges("./test/partition/graph.edges.part2", fg);
 }

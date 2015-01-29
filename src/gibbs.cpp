@@ -57,7 +57,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   int n_datacopy = cmd_parser.n_datacopy->getValue();
   double reg_param = cmd_parser.reg_param->getValue();
   bool is_quiet = cmd_parser.quiet->getValue();
-  bool partition = cmd_parser.partition->getValue();
+  int partition = cmd_parser.partition->getValue();
 
   Meta meta = read_meta(fg_file); 
 

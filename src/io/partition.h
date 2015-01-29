@@ -14,9 +14,6 @@ public:
 
 	Partition(int _num_partitions, std::string variable_file, std::string factor_file);
 
-	// load partition meta
-	void load_meta(std::string filename);
-
 	// load mapping from the given file
 	void load_mapping(std::string filename, std::unordered_map<long, int>& map);
 
@@ -30,6 +27,10 @@ public:
 	void partition_edges(std::string filename);
 
 private:
+	// underlying the above functions, split file according to partition id
+	// size is the size of a record in bytes, use map as id -> mapping 
+	void partition(std::string filename, int size, std::unordered_map<long, int> map);
+
 	// variable id -> partition id map
 	std::unordered_map<long, int> variable_map;
 	std::unordered_map<long, int> factor_map;

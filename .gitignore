@@ -21,3 +21,4 @@ lib/
 .DS_Store
 inference_result.out*
 *.json
+test/partition

@@ -29,7 +29,7 @@ namespace dd{
         n_datacopy = new TCLAP::ValueArg<int>("c","n_datacopy","Number of factor graph copies",false,0,"int");
         reg_param = new TCLAP::ValueArg<double>("b","reg_param","l2 regularization parameter",false,0.01,"double");
         quiet = new TCLAP::SwitchArg("q", "quiet", "quiet output", false);
-        partition = new TCLAP::SwitchArg("", "partition", "partition mode", false);
+        partition = new TCLAP::ValueArg<int>("", "partition", "partition mode", false, 0, "int");
 
         cmd->add(*fg_file);
         

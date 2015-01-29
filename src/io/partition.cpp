@@ -33,6 +33,18 @@ void Partition::load_mapping(std::string filename, std::unordered_map<long, int>
 }
 
 void Partition::partition_variables(std::string filename) {
+	partition(filename, 35, variable_map);
+}
+
+void Partition::partition_factors(std::string filename) {
+	partition(filename, 26, factor_map);
+}
+
+void Partition::partition_edges(std::string filename) {
+	partition(filename, 33, variable_map);
+}
+
+void Partition::partition(std::string filename, int size, std::unordered_map<long, int> map) {
 	std::ifstream file;
 	std::vector<std::ofstream *> outstreams;
 	// write variables to each partition file
@@ -44,14 +56,15 @@ void Partition::partition_variables(std::string filename) {
 	file.open(filename.c_str(), ios::binary);
 	long idn, idh; // id in network order and host order
 	int pid;
-	char buf[27];
+	size = size - 8;
+	char *buf = new char[size];
 	while (true) {
 		if (!file.read((char *)&idn, 8)) break;
-		file.read(buf, 27);
+		file.read(buf, size);
 		idh = bswap_64(idn);
 		pid = variable_map[idh];
 		outstreams[pid]->write((char *)&idn, 8);
-		outstreams[pid]->write(buf, 27);
+		outstreams[pid]->write(buf, size);
 	}
 	file.close();
 	for (int i = 0; i < num_partitions; i++) {
@@ -59,5 +72,3 @@ void Partition::partition_variables(std::string filename) {
 		delete outstreams[i];
 	}
 }
-
-

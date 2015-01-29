@@ -155,6 +155,7 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         type = bswap_16(type);
         edge_count = bswap_64(edge_count);
         count++;
+        printf("id=%lli weightid=%lli type=%d edge_count=%lli\n", id, weightid, type, edge_count);
         fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
         fg.c_nfactor ++;
     }
@@ -186,6 +187,7 @@ long long read_edges(string filename, dd::FactorGraph &fg)
         ispositive = padding;
         equal_predicate = bswap_64(equal_predicate);
         count++;
+        printf("varid=%lli, factorid=%lli, position=%lli, predicate=%lli\n", variable_id, factor_id, position, equal_predicate);
 
         // wrong id
     	if(variable_id >= fg.n_var || variable_id < 0){
