@@ -29,7 +29,9 @@ namespace dd{
         n_datacopy = new TCLAP::ValueArg<int>("c","n_datacopy","Number of factor graph copies",false,0,"int");
         reg_param = new TCLAP::ValueArg<double>("b","reg_param","l2 regularization parameter",false,0.01,"double");
         quiet = new TCLAP::SwitchArg("q", "quiet", "quiet output", false);
-        partition = new TCLAP::ValueArg<int>("", "partition", "partition mode", false, 0, "int");
+        num_partitions = new TCLAP::ValueArg<int>("", "num_partitions", "number of partitions", false, 0, "int");
+        partition_variableids_file = new TCLAP::ValueArg<std::string>("","partition_variableids_file","factor graph partition id mapping file for variables",false,"","string"); 
+        partition_factorids_file = new TCLAP::ValueArg<std::string>("","partition_factorids_file","factor graph partition id mapping file for factors",false,"","string"); 
 
         cmd->add(*fg_file);
         
@@ -51,7 +53,9 @@ namespace dd{
         cmd->add(*n_datacopy);
         cmd->add(*reg_param);
         cmd->add(*quiet);
-        cmd->add(*partition);
+        cmd->add(*num_partitions);
+        cmd->add(*partition_variableids_file);
+        cmd->add(*partition_factorids_file);
       }else{
         std::cout << "ERROR: UNKNOWN APP NAME " << app_name << std::endl;
         std::cout << "AVAILABLE APP {gibbs}" << app_name << std::endl;

@@ -40,7 +40,9 @@ namespace dd{
     TCLAP::ValueArg<int> * n_datacopy;
     TCLAP::ValueArg<double> * reg_param;
     TCLAP::SwitchArg * quiet; 
-    TCLAP::ValueArg<int> * partition;
+    TCLAP::ValueArg<int> * num_partitions;
+    TCLAP::ValueArg<std::string> * partition_variableids_file;
+    TCLAP::ValueArg<std::string> * partition_factorids_file;
 
     TCLAP::CmdLine * cmd;
 

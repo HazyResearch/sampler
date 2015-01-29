@@ -22,7 +22,7 @@ void Partition::load_mapping(std::string filename, std::unordered_map<long, int>
 	long id;
 	long pid;
 	while (file >> id >> pid) {
-		map[id] = pid;					
+		map[id] = pid;
 	}
 	file.close();
 }

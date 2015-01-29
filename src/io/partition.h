@@ -13,6 +13,8 @@
 class Partition {
 public:
 	std::vector<Meta> metas;
+	// numbers (0,1,2,3,...) in string
+	std::vector<std::string> numbers;
 
 	Partition(int _num_partitions, int _num_weights, std::string variable_file, std::string factor_file);
 
@@ -38,9 +40,6 @@ private:
 	std::unordered_map<long, int> variable_map;
 	std::unordered_map<long, int> factor_map;
 	int num_partitions;
-	
-	// numbers (0,1,2,3,...) in string
-	std::vector<std::string> numbers;
 };
 
 #endif
