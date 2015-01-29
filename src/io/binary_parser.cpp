@@ -3,22 +3,6 @@
 #include <stdint.h>
 #include "binary_parser.h"
 
-
-// 64-bit big endian to little endian
-# define bswap_64(x) \
-     ((((x) & 0xff00000000000000ull) >> 56)                                   \
-      | (((x) & 0x00ff000000000000ull) >> 40)                                 \
-      | (((x) & 0x0000ff0000000000ull) >> 24)                                 \
-      | (((x) & 0x000000ff00000000ull) >> 8)                                  \
-      | (((x) & 0x00000000ff000000ull) << 8)                                  \
-      | (((x) & 0x0000000000ff0000ull) << 24)                                 \
-      | (((x) & 0x000000000000ff00ull) << 40)                                 \
-      | (((x) & 0x00000000000000ffull) << 56))
-
-// 16-bit big endian to little endian
-#define bswap_16(x) \
-     ((unsigned short int) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
-
 // Read meta data file, return Meta struct 
 Meta read_meta(string meta_file)
 {
@@ -102,6 +86,8 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         edge_count = bswap_64(edge_count);
         cardinality = bswap_64(cardinality);
         count++;
+        printf("   id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", 
+            id, isevidence, initial_value, type, edge_count, cardinality);
 
         // add to factor graph
         if (type == 0){ // boolean

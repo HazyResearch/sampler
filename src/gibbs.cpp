@@ -57,6 +57,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   int n_datacopy = cmd_parser.n_datacopy->getValue();
   double reg_param = cmd_parser.reg_param->getValue();
   bool is_quiet = cmd_parser.quiet->getValue();
+  bool partition = cmd_parser.partition->getValue();
 
   Meta meta = read_meta(fg_file); 
 
@@ -82,6 +83,7 @@ void gibbs(dd::CmdParser & cmd_parser){
     std::cout << "# stepsize           : " << stepsize << std::endl;
     std::cout << "# decay              : " << decay << std::endl;
     std::cout << "# regularization     : " << reg_param << std::endl;
+    std::cout << "# partition          : " << partition << std::endl;
     std::cout << "################################################" << std::endl;
     std::cout << "# IGNORE -s (n_samples/l. epoch). ALWAYS -s 1. #" << std::endl;
     std::cout << "# IGNORE -t (threads). ALWAYS USE ALL THREADS. #" << std::endl;

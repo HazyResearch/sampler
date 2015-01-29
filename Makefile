@@ -25,11 +25,11 @@ endif
 COMPILE_CMD = $(CXX) $(OPT_FLAG) $(GCC_INCLUDE) $(GCC_LIB) $(CPP_FLAG)
 
 dw: factor_graph.o inference_result.o gibbs_sampling.o main.o binary_parser.o single_thread_sampler.o \
-	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o
+	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o partition.o
 	$(COMPILE_CMD) -o dw gibbs_sampling.o main.o binary_parser.o \
 					    timer.o gibbs.o single_node_sampler.o \
 						factor_graph.o inference_result.o single_thread_sampler.o factor.o \
-						variable.o weight.o cmd_parser.o \
+						variable.o weight.o cmd_parser.o partition.o \
 	$(CPP_FLAG) 
 
 gibbs.o: src/gibbs.cpp
@@ -68,20 +68,24 @@ single_thread_sampler.o: src/app/gibbs/single_thread_sampler.cpp
 single_node_sampler.o: src/app/gibbs/single_node_sampler.cpp
 	$(COMPILE_CMD) -c src/app/gibbs/single_node_sampler.cpp
 
+partition.o: src/io/partition.cpp
+	$(COMPILE_CMD) -c src/io/partition.cpp
+
 timer.o : src/timer.cpp 
 	$(COMPILE_CMD) -o timer.o -c src/timer.cpp 
 
 dw_test: factor_graph.o inference_result.o gibbs_sampling.o  binary_parser.o single_thread_sampler.o \
-	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o
+	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o \
+	partition.o
 	
 	$(COMPILE_CMD) -I./lib/gtest-1.7.0/include/ -L./lib/gtest/ \
 	-o dw_test test/test.cpp test/FactorTest.cpp test/LogisticRegressionTest.cpp \
 	test/binary_parser_test.cpp test/loading_test.cpp test/factor_graph_test.cpp \
-	test/sampler_test.cpp test/multinomial.cpp \
+	test/sampler_test.cpp test/multinomial.cpp test/partition_test.cpp \
 	gibbs_sampling.o binary_parser.o \
     timer.o gibbs.o single_node_sampler.o \
 	factor_graph.o inference_result.o single_thread_sampler.o factor.o \
-	variable.o weight.o cmd_parser.o \
+	variable.o weight.o cmd_parser.o partition.o \
 	$(CPP_FLAG) -lgtest
 
 dep:
