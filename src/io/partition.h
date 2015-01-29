@@ -8,11 +8,13 @@
 #include <iostream>
 #include <unordered_map>
 #include <vector>
+#include "io/binary_parser.h"
 
 class Partition {
 public:
+	std::vector<Meta> metas;
 
-	Partition(int _num_partitions, std::string variable_file, std::string factor_file);
+	Partition(int _num_partitions, int _num_weights, std::string variable_file, std::string factor_file);
 
 	// load mapping from the given file
 	void load_mapping(std::string filename, std::unordered_map<long, int>& map);
@@ -28,8 +30,9 @@ public:
 
 private:
 	// underlying the above functions, split file according to partition id
+	// returns number of records for each partition
 	// size is the size of a record in bytes, use map as id -> mapping 
-	void partition(std::string filename, int size, std::unordered_map<long, int> map);
+	std::vector<long> partition(std::string filename, int size, std::unordered_map<long, int> map);
 
 	// variable id -> partition id map
 	std::unordered_map<long, int> variable_map;

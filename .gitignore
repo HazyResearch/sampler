@@ -17,8 +17,13 @@ dw_test
 # library
 lib/
 
+#data
+data3
+
 # others
 .DS_Store
 inference_result.out*
 *.json
 test/partition
+
+

@@ -11,8 +11,9 @@ using namespace dd;
 
 TEST(PartitionTest, variables) {
 	dd::FactorGraph fg(200, 200, 200, 1);
-	Partition partition(3, "./test/partition/graph.partition.variables", 
+	Partition partition(3, 200, "./test/partition/graph.partition.variables", 
 		"./test/partition/graph.factors");
+
 	partition.partition_variables("./test/partition/graph.variables");
 	read_variables("./test/partition/graph.variables.part0", fg);
 	read_variables("./test/partition/graph.variables.part1", fg);
@@ -27,4 +28,9 @@ TEST(PartitionTest, variables) {
 	read_edges("./test/partition/graph.edges.part0", fg);
 	read_edges("./test/partition/graph.edges.part1", fg);
 	read_edges("./test/partition/graph.edges.part2", fg);
+
+	for (int i = 0; i < 3; i++) {
+		std::cout << partition.metas[i].num_variables << " " << partition.metas[i].num_factors << " "
+			<< partition.metas[i].num_edges << std::endl;
+	}
 }
