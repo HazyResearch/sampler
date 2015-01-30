@@ -25,8 +25,8 @@ namespace dd {
     // assignment to variables, see variable.h for more detail
     VariableValue * assignments_free;
     VariableValue * assignments_evid;
-    double * const weight_values; // array of weight values
-    bool * const weights_isfixed; // array of whether weight is fixed
+    double * weight_values; // array of weight values
+    bool * weights_isfixed; // array of whether weight is fixed
 
     InferenceResult(long _nvars, long _nweights);
     ~InferenceResult();

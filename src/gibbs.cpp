@@ -157,11 +157,12 @@ void gibbs(dd::CmdParser & cmd_parser){
 
     meta = partition.metas[0];
     dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
-    // a first pass over data, read variables and weights to init infrs
+    // first pass over data, read variables and weights to init infrs
     // load weights
     fg.load_weights(cmd_parser, is_quiet);
     infrs.init_weights(fg.weights);
-    std::cerr << "loaded weights" << std::endl;
+    std::cerr << "initial weights" << infrs.weight_values[0] << std::endl;
+
     // load variables, init variable assignments in infrs
     // variable ids are mapped to a continous range starting from 0
     // variable assignments in each partition are continous in infrs 
@@ -170,13 +171,10 @@ void gibbs(dd::CmdParser & cmd_parser){
       std::cerr << "loading variables from partition " << i << std::endl;
       long ntallies = fg.reload_variables(partition.metas[i].num_variables, cmd_parser,
         partition.numbers[i], partition.vid_maps[i]);
-      std::cerr << "ntallies " << ntallies << std::endl;
       tally_offsets.push_back(tally_offset);
       tally_offset += ntallies;
-      std::cerr << "init_variables " << std::endl;
       infrs.init_variables(fg.variables, partition.metas[i].num_variables, vid_offsets[i]);
     }
-    std::cerr << "init tallies " << std::endl;
     infrs.init_tallies(tally_offset);
 
     std::cerr << "======================================================" << std::endl;
@@ -197,9 +195,11 @@ void gibbs(dd::CmdParser & cmd_parser){
         dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
         // learn
         gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
+        std::cerr << "weight " << infrs.weight_values[0] << std::endl;
       }
     }
-    // gibbs.dump_weights(is_quiet);
+    dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+    gibbs.dump_weights(is_quiet);
 
     // // for each partition, load factor graph and sample it
     // for (int i = 0; i < numa_aware_n_epoch; i++) {

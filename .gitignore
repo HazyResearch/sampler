@@ -24,6 +24,5 @@ data3
 .DS_Store
 inference_result.out*
 *.json
-test/partition
-
+test/partition/graph.*.part*
 

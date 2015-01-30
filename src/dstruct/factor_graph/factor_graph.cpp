@@ -90,6 +90,7 @@ void dd::FactorGraph::update_weight(const Variable & variable){
         // using a sample of the variable.
         infrs->weight_values[ws[i]] += 
           stepsize * (this->template potential<false>(fs[i]) - this->template potential<true>(fs[i]));
+        std::cerr << "update weight " << ws[i] << " " << infrs->weight_values[ws[i]] << std::endl;
       }
     } else if (variable.domain_type == DTYPE_MULTINOMIAL) {
       // two weights need to be updated
@@ -172,7 +173,7 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
 
 }
 
-void dd::FactorGraph::load_weights(const CmdParser & cmd, const bool is_quiet){
+void dd::FactorGraph::load_weights(const CmdParser & cmd, const bool is_quiet) {
   std::string weight_file = cmd.weight_file->getValue();
 
   // load weights
@@ -243,6 +244,8 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   infrs->agg_nsamples = &_infrs.agg_nsamples[_variableid_offset];
   infrs->assignments_free = &_infrs.assignments_free[_variableid_offset];
   infrs->assignments_evid = &_infrs.assignments_evid[_variableid_offset];
+  infrs->weight_values = _infrs.weight_values;
+  infrs->weights_isfixed = _infrs.weights_isfixed;
 
   // get factor graph file names from command line arguments
   std::string variable_file = cmd.variable_file->getValue();
