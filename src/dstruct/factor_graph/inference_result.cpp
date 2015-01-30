@@ -1,4 +1,5 @@
 #include "dstruct/factor_graph/inference_result.h"
+#include <iostream>
 
 dd::InferenceResult::InferenceResult(long _nvars, long _nweights):
   nvars(_nvars),
@@ -11,6 +12,7 @@ dd::InferenceResult::InferenceResult(long _nvars, long _nweights):
   weights_isfixed(new bool [_nweights]) {}
 
 dd::InferenceResult::~InferenceResult() {
+  std::cerr << "destroying inference_result..." << std::endl;
   delete[] agg_nsamples;
   delete[] agg_means;
   delete[] assignments_free;

@@ -134,7 +134,7 @@ gibbs:
 		-v data3/graph.variables     \
 		-f data3/graph.factors    \
 		-o data3/                    \
-		-i 1000 -l 1000 -s 10 --alpha 0.01 --diminish 0.95
+		-i 10 -l 10 -s 10 --alpha 0.01 --diminish 0.95
 
 test: clean dw_test
 	./dw_test

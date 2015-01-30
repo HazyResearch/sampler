@@ -22,6 +22,9 @@ dd::FactorGraph::FactorGraph(long _n_var, long _n_factor, long _n_weight, long _
   sorted(false),
   safety_check_passed(false) {}
 
+dd::FactorGraph::~FactorGraph() {
+}
+
 void dd::FactorGraph::copy_from(const FactorGraph * const p_other_fg){
   // copy each member from the given graph
   memcpy(variables, p_other_fg->variables, sizeof(Variable)*n_var);
@@ -153,6 +156,8 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   // where they are stored in the array
   this->sort_by_id();
 
+  infrs->init(variables, weights);
+
   // load edges
   n_loaded = read_edges(edge_file, *this);
   if (!is_quiet) {
@@ -165,6 +170,82 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
 
   assert(this->is_usable() == true);
 
+}
+
+void dd::FactorGraph::load_weights(const CmdParser & cmd, const bool is_quiet){
+  std::string weight_file = cmd.weight_file->getValue();
+
+  // load weights
+  long n_loaded = read_weights(weight_file, *this);
+  assert(n_loaded == n_weight);
+  if (!is_quiet) {
+    std::cout << "LOADED WEIGHTS: #" << n_loaded << std::endl;
+  }
+
+}
+
+void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
+  const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
+  long _variableid_offset, long _factorid_offset, long _tally_offset,
+  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map) {
+  // clear variables, factors, edges of the current graph
+  n_var = _nvars;
+  n_factor = _nfactors;
+  n_edge = _nedges;
+  c_nvar = 0; 
+  c_nfactor = 0; 
+  n_evid = 0;
+  n_query =0;
+  delete[] variables;
+  delete[] factors;
+  delete[] compact_factors;
+  delete[] compact_factors_weightids;
+  delete[] factor_ids;
+  delete[] vifs;
+  variables = new Variable[n_var];
+  factors = new Factor[n_factor];
+  compact_factors = new CompactFactor[n_edge];
+  compact_factors_weightids = new int[n_edge];
+  factor_ids = new long[n_edge];
+  vifs = new VariableInFactor[n_edge];
+
+  // repoint infrs
+  infrs->nvars = n_var;
+  infrs->ntallies = 0;
+  infrs->multinomial_tallies = &_infrs.multinomial_tallies[_tally_offset];
+  infrs->agg_means = &_infrs.agg_means[_variableid_offset];
+  infrs->agg_nsamples = &_infrs.agg_nsamples[_variableid_offset];
+  infrs->assignments_free = &_infrs.assignments_free[_variableid_offset];
+  infrs->assignments_evid = &_infrs.assignments_evid[_variableid_offset];
+
+  // get factor graph file names from command line arguments
+  std::string variable_file = cmd.variable_file->getValue();
+  std::string factor_file = cmd.factor_file->getValue();
+  std::string edge_file = cmd.edge_file->getValue();
+
+  std::string filename_edges = edge_file + ".part" + partition_id_str;
+  std::string filename_factors = factor_file + ".part" + partition_id_str;
+  std::string filename_variables = variable_file + ".part" + partition_id_str;
+
+  long long n_loaded = read_variables(filename_variables, *this, vid_map);
+  assert(n_loaded == n_var);
+  std::cout << "LOADED VARIABLES: #" << n_loaded << std::endl;
+  std::cout << "         N_QUERY: #" << n_query << std::endl;
+  std::cout << "         N_EVID : #" << n_evid << std::endl;
+
+  n_loaded = read_factors(filename_factors, *this, fid_map);
+  assert(n_loaded == n_factor);
+  std::cout << "LOADED FACTORS: #" << n_loaded << std::endl;
+
+  this->sort_by_id();
+  n_loaded = read_edges(edge_file, *this, vid_map, fid_map);
+  std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
+
+  // construct edge-based store
+  this->organize_graph_by_edge();
+  this->safety_check();
+
+  assert(this->is_usable() == true);
 }
 
 // sort according to id
@@ -182,7 +263,6 @@ void dd::FactorGraph::sort_by_id() {
   std::sort(&factors[0], &factors[n_factor], idsorter<Factor>());
   std::sort(&weights[0], &weights[n_weight], idsorter<Weight>()); 
   this->sorted = true;
-  infrs->init(variables, weights);
 }
 
 bool dd::compare_position(VariableInFactor& x, VariableInFactor& y) {

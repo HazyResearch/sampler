@@ -8,6 +8,7 @@
 #include "dstruct/factor_graph/inference_result.h"
 
 #include <xmmintrin.h>
+#include <unordered_map>
 
 #ifndef _FACTOR_GRAPH_H_
 #define _FACTOR_GRAPH_H_
@@ -24,7 +25,6 @@ namespace dd{
     long n_factor;
     long n_weight;
     long n_edge;
-    long n_tally;
 
     long c_nvar;
     long c_nfactor;
@@ -39,22 +39,22 @@ namespace dd{
     double stepsize;
 
     // variables, factors, weights
-    Variable * const variables;
-    Factor * const factors;
-    Weight * const weights;
+    Variable * variables;
+    Factor * factors;
+    Weight * weights;
 
     // For each edge, we store the factor, weight id, factor id, and the variable, 
     // in the same index of seperate arrays. The edges are ordered so that the
     // edges for a variable is in a continuous region (sequentially). 
     // This allows us to access factors given variables, and access variables
     // given factors faster. 
-    CompactFactor * const compact_factors;
-    int * const compact_factors_weightids;
-    long * const factor_ids;
-    VariableInFactor * const vifs;
+    CompactFactor * compact_factors;
+    int * compact_factors_weightids;
+    long * factor_ids;
+    VariableInFactor * vifs;
 
     // pointer to inference result
-    InferenceResult * const infrs ;
+    InferenceResult * infrs ;
 
     // whether the factor graph loading has been finalized
     // see sort_by_id() below
@@ -68,6 +68,7 @@ namespace dd{
      * factors, weights, and edges
      */
     FactorGraph(long _n_var, long _n_factor, long _n_weight, long _n_edge);
+    ~FactorGraph();
 
     /**
      * Copys a factor graph from the given one
@@ -163,6 +164,19 @@ namespace dd{
      * Loads the factor graph using arguments specified from command line
      */
     void load(const CmdParser & cmd, const bool is_quiet);
+
+    /**
+     * Loads the weights for factor graph using arguments specified from command line
+     */
+    void load_weights(const CmdParser & cmd, const bool is_quiet);
+
+    /**
+     * Reloads a factor graph from the given partition
+     */
+    void reload(long _nvars, long _nfactors, long _nedges, 
+      const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
+      long _variableid_offset, long _factorid_offset, long _tally_offset,
+      std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map);
 
     /**
      * Sorts the variables, factors, and weights in ascending id order.

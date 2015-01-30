@@ -7,14 +7,14 @@
 
 // meta data
 typedef struct {
-  long long num_weights;
-  long long num_variables;
-  long long num_factors;
-  long long num_edges;
-  std::string weights_file; 
-  std::string variables_file;
-  std::string factors_file;
-  std::string edges_file;
+	long long num_weights;
+	long long num_variables;
+	long long num_factors;
+	long long num_edges;
+	std::string weights_file; 
+	std::string variables_file;
+	std::string factors_file;
+	std::string edges_file;
 } Meta;
 
 /**

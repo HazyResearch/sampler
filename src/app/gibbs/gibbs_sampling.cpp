@@ -110,6 +110,7 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
 
   double * ori_weights = new double[nweight];
   memcpy(ori_weights, this->factorgraphs[0].infrs->weight_values, sizeof(double)*nweight);
+  std::cerr << "starts learning" << std::endl;
 
   // learning epochs
   for(int i_epoch=0;i_epoch<n_epoch;i_epoch++){

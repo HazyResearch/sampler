@@ -115,9 +115,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   if (num_partitions == 0) {
     dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
     fg.load(cmd_parser, is_quiet);
-    std::cerr << "after loading" << std::endl;
     dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
-    std::cerr << "created gibbs sampling object" << std::endl;
 
     // learning
     gibbs.learn(numa_aware_n_learning_epoch, n_samples_per_learning_epoch, 
