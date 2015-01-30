@@ -32,6 +32,21 @@
 #define LOG_2   0.693147180559945
 #define MINUS_LOG_THRESHOLD   -18.42
 
+// 64-bit big endian to little endian
+# define bswap_64(x) \
+     ((((x) & 0xff00000000000000ull) >> 56)                                   \
+      | (((x) & 0x00ff000000000000ull) >> 40)                                 \
+      | (((x) & 0x0000ff0000000000ull) >> 24)                                 \
+      | (((x) & 0x000000ff00000000ull) >> 8)                                  \
+      | (((x) & 0x00000000ff000000ull) << 8)                                  \
+      | (((x) & 0x0000000000ff0000ull) << 24)                                 \
+      | (((x) & 0x000000000000ff00ull) << 40)                                 \
+      | (((x) & 0x00000000000000ffull) << 56))
+
+// 16-bit big endian to little endian
+#define bswap_16(x) \
+     ((unsigned short int) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
+
 inline bool fast_exact_is_equal(double a, double b){
     return (a <= b && b <= a);
 }
