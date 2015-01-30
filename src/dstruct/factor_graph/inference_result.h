@@ -34,7 +34,11 @@ namespace dd {
     /**
      * Initialize the class with given variables and weights
      */
-    void init(Variable * variables, Weight * const weights);
+    void init(Variable * variables, Weight * weights);
+    void init_variables(const Variable * variables);
+    void init_weights(const Weight * weights);
+    void init_tallies(long _ntallies);
+    void init_variables(const Variable * variables, long num_variables, long idoffset);
   };
 }
 

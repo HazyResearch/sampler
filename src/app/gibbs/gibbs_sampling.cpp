@@ -91,7 +91,8 @@ void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet){
 
 void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoch, 
                               const double & stepsize, const double & decay, 
-                              const double reg_param, const bool is_quiet){
+                              const double reg_param, const bool is_quiet,
+                              const int& start_epoch){
 
   Timer t_total;
 
@@ -113,7 +114,7 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
   std::cerr << "starts learning" << std::endl;
 
   // learning epochs
-  for(int i_epoch=0;i_epoch<n_epoch;i_epoch++){
+  for(int i_epoch=start_epoch;i_epoch<start_epoch+n_epoch;i_epoch++){
 
     if (!is_quiet) {
       std::cout << std::setprecision(2) << "LEARNING EPOCH " << i_epoch * nnode <<  "~" 

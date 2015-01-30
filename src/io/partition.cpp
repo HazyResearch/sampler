@@ -86,6 +86,12 @@ std::vector<long> Partition::partition(std::string filename, int size, std::unor
 	return counts;
 }
 
+void Partition::partition_factor_graph(std::string variable_file, std::string factor_file, std::string edge_file) {
+	partition_variables(variable_file);
+	partition_factors(factor_file);
+	partition_edges(edge_file);
+}
+
 Partition::~Partition() {
 	for (int i = 0; i < num_partitions; i++) {
 		delete vid_maps[i];

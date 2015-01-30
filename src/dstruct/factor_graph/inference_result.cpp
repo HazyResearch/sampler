@@ -21,8 +21,20 @@ dd::InferenceResult::~InferenceResult() {
   delete[] weights_isfixed;
 }
 
-void dd::InferenceResult::init(Variable * variables, Weight * const weights){
+void dd::InferenceResult::init(Variable * variables, Weight * weights){
+  init_variables(variables);
+  init_weights(weights);
+}
 
+void dd::InferenceResult::init_weights(const Weight * weights) {
+  for(long t=0;t<nweights;t++){
+    const Weight & weight = weights[t];
+    weight_values[weight.id] = weight.weight;
+    weights_isfixed[weight.id] = weight.isfixed;
+  }
+}
+
+void dd::InferenceResult::init_variables(const Variable * variables) {
   ntallies = 0;
   for(long t=0;t<nvars;t++){
     const Variable & variable = variables[t];
@@ -39,10 +51,28 @@ void dd::InferenceResult::init(Variable * variables, Weight * const weights){
   for(long i=0;i<ntallies;i++){
     multinomial_tallies[i] = 0;
   }
+}
 
-  for(long t=0;t<nweights;t++){
-    const Weight & weight = weights[t];
-    weight_values[weight.id] = weight.weight;
-    weights_isfixed[weight.id] = weight.isfixed;
+void dd::InferenceResult::init_variables(const Variable * variables, long num_variables,
+  long idoffset) {
+  long pos = 0;
+  std::cerr << "nvars " << nvars << std::endl;
+  std::cerr << "idoffset " << idoffset << std::endl;
+  for (long t = 0; t < num_variables; t++) {
+    const Variable & variable = variables[t];
+    pos = variable.id + idoffset;
+    std::cerr << "pos " << pos << std::endl;
+    assignments_free[pos] = variable.assignment_free;
+    assignments_evid[pos] = variable.assignment_evid;
+    agg_means[pos] = 0.0;
+    agg_nsamples[pos] = 0.0;
+  }
+}
+
+void dd::InferenceResult::init_tallies(long _ntallies) {
+  ntallies = _ntallies;
+  multinomial_tallies = new int[ntallies];
+  for(long i=0;i<ntallies;i++){
+    multinomial_tallies[i] = 0;
   }
 }

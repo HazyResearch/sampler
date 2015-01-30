@@ -184,9 +184,35 @@ void dd::FactorGraph::load_weights(const CmdParser & cmd, const bool is_quiet){
 
 }
 
+long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::string& partition_id_str,
+  std::unordered_map<long, long> *vid_map) {
+  n_var = _nvars;
+  c_nvar = 0; 
+  n_evid = 0;
+  n_query =0;
+  delete[] variables;
+  variables = new Variable[n_var];
+
+  std::string variable_file = cmd.variable_file->getValue();
+  std::string filename_variables = variable_file + ".part" + partition_id_str;
+
+  long n_loaded = read_variables(filename_variables, *this, vid_map);
+  assert(n_loaded == n_var);
+  long ntallies = 0;
+  for(long t=0;t<n_var;t++){
+    const Variable& variable = variables[t]; 
+    if(variable.domain_type == DTYPE_MULTINOMIAL){
+      ntallies += variable.upper_bound - variable.lower_bound + 1;
+    }
+  }
+  return ntallies;
+}
+
+
+
 void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
-  long _variableid_offset, long _factorid_offset, long _tally_offset,
+  long _variableid_offset, long _tally_offset,
   std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map) {
   // clear variables, factors, edges of the current graph
   n_var = _nvars;
@@ -238,7 +264,7 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   std::cout << "LOADED FACTORS: #" << n_loaded << std::endl;
 
   this->sort_by_id();
-  n_loaded = read_edges(edge_file, *this, vid_map, fid_map);
+  n_loaded = read_edges(filename_edges, *this, vid_map, fid_map);
   std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
 
   // construct edge-based store

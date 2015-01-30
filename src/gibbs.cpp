@@ -131,48 +131,74 @@ void gibbs(dd::CmdParser & cmd_parser){
   } else {
 
     // partition
-    // n_datacopy = 1;
-    // std::string partition_variableids_file = cmd_parser.partition_variableids_file->getValue();
-    // std::string partition_factorids_file = cmd_parser.partition_factorids_file->getValue();
-    // Partition partition(num_partitions, meta.num_weights, partition_variableids_file, partition_factorids_file);
+    n_datacopy = 1;
+    std::string partition_variableids_file = cmd_parser.partition_variableids_file->getValue();
+    std::string partition_factorids_file = cmd_parser.partition_factorids_file->getValue();
+    Partition partition(num_partitions, meta.num_weights, partition_variableids_file, partition_factorids_file);
+    std::cerr << "partitioning factor graph..." << std::endl;
+    partition.partition_factor_graph(variable_file, factor_file, edge_file);
+
+    // id offsets
+    // variable and factor ids are mapped to a continous range starting from 0
+    // each partition has an id offset
+    std::vector<long> vid_offsets, fid_offsets, tally_offsets;
+    long vid_offset = 0, fid_offset = 0;
+    for (int i = 0; i < num_partitions; i++) {
+      std::cerr << "partition " << i << " vid offset " << vid_offset 
+        << " fid offset " << fid_offset << std::endl;
+      vid_offsets.push_back(vid_offset);
+      // fid_offsets.push_back(fid_offset);
+      vid_offset += partition.metas[i].num_variables;
+      // fid_offset += partition.metas[i].num_factors;
+    }
     
-    // // inference result
-    // dd::InferenceResult infrs(meta.num_variables, meta.num_weights);
-    // meta = partition.metas[0];
-    // dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
-    // // load weights
-    // fg.load_weights(cmd_parser, is_quiet);
+    // inference result
+    dd::InferenceResult infrs(meta.num_variables, meta.num_weights);
 
-    // dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+    meta = partition.metas[0];
+    dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
+    // a first pass over data, read variables and weights to init infrs
+    // load weights
+    fg.load_weights(cmd_parser, is_quiet);
+    infrs.init_weights(fg.weights);
+    std::cerr << "loaded weights" << std::endl;
+    // load variables, init variable assignments in infrs
+    // variable ids are mapped to a continous range starting from 0
+    // variable assignments in each partition are continous in infrs 
+    int tally_offset = 0;
+    for (int i = 0; i < num_partitions; i++) {
+      std::cerr << "loading variables from partition " << i << std::endl;
+      long ntallies = fg.reload_variables(partition.metas[i].num_variables, cmd_parser,
+        partition.numbers[i], partition.vid_maps[i]);
+      std::cerr << "ntallies " << ntallies << std::endl;
+      tally_offsets.push_back(tally_offset);
+      tally_offset += ntallies;
+      std::cerr << "init_variables " << std::endl;
+      infrs.init_variables(fg.variables, partition.metas[i].num_variables, vid_offsets[i]);
+    }
+    std::cerr << "init tallies " << std::endl;
+    infrs.init_tallies(tally_offset);
 
-    // // id offsets
-    // std::vector<long> vid_offsets, fid_offsets, tally_offsets;
-    // long vid_offset = 0, fid_offset = 0, tally_offset = 0;
-    // for (int i = 0; i < num_partitions; i++) {
-    //   vid_offsets.push_back(vid_offset);
-    //   fid_offsets.push_back(fid_offset);
-    //   vid_offset += partition.metas[i-1].num_variables;
-    //   fid_offset += partition.metas[i-1].num_factors;
-    // }
-    // bool tally_calculated = false;
+    std::cerr << "======================================================" << std::endl;
 
-    // // for each partition, load factor graph and sample it
-    // for (int i = 0; i < numa_aware_n_learning_epoch; i++) {
-    //   for (int j = 0; j < num_partitions; j++) {
-    //     if (!tally_calculated) {
-    //       tally_offsets.push_back(tally_offset);
-    //       tally_offset += fg.infrs->ntallies;
-    //     }
-    //     meta = partition.metas[j];
-    //     // reload factor graph
-    //     fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-    //       partition.numbers[j], infrs, j, vid_offsets[j], fid_offsets[j], tally_offsets[j],
-    //       partition.vid_maps[j], partition.fid_maps[j]);
-    //     // learn
-    //     gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet);
-    //   }
-    //   tally_calculated = true;
-    // }
+    // for each partition, load factor graph and sample it
+    for (int i = 0; i < numa_aware_n_learning_epoch; i++) {
+      std::cerr << "======================================================" << std::endl;
+      for (int j = 0; j < num_partitions; j++) {
+        std::cerr << "------------------------------------------------------" << std::endl;
+        std::cerr << "loading partition " << j << std::endl;
+        meta = partition.metas[j];
+        // reload factor graph
+        // variable and factor ids are mapped to a continous range starting from 0
+        // 
+        fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+          partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+          partition.vid_maps[j], partition.fid_maps[j]);
+        dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+        // learn
+        gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
+      }
+    }
     // gibbs.dump_weights(is_quiet);
 
     // // for each partition, load factor graph and sample it

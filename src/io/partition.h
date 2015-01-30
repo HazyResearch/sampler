@@ -35,6 +35,9 @@ public:
 	// partition edges
 	void partition_edges(std::string filename);
 
+	// partition factor graph
+	void partition_factor_graph(std::string variable_file, std::string factor_file, std::string edge_file);
+
 private:
 	// underlying the above functions, split file according to partition id
 	// returns number of records for each partition

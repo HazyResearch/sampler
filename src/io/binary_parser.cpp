@@ -92,8 +92,8 @@ long long read_variables(std::string filename, dd::FactorGraph &fg,
         edge_count = bswap_64(edge_count);
         cardinality = bswap_64(cardinality);
         count++;
-        // printf("   id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", 
-        //     id, isevidence, initial_value, type, edge_count, cardinality);
+        printf("   id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", 
+            id, isevidence, initial_value, type, edge_count, cardinality);
 
         // add to factor graph
         if (type == 0){ // boolean
@@ -120,19 +120,7 @@ long long read_variables(std::string filename, dd::FactorGraph &fg,
                 fg.c_nvar ++;
                 fg.n_query ++;
             }
-        } else if (type == 3){
-            if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_REAL, true, 0, cardinality, 
-                    initial_value, initial_value, edge_count);
-                fg.c_nvar++;
-                fg.n_evid++;
-            }else{
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_REAL, true, 0, cardinality, 
-                    initial_value, initial_value, edge_count);
-                fg.c_nvar++;
-                fg.n_evid++;
-            }
-        }else {
+        } else {
             std::cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << std::endl;
             exit(1);
         }
@@ -165,7 +153,7 @@ long long read_factors(std::string filename, dd::FactorGraph &fg,
         type = bswap_16(type);
         edge_count = bswap_64(edge_count);
         count++;
-        // printf("id=%lli weightid=%lli type=%d edge_count=%lli\n", id, weightid, type, edge_count);
+        printf("id=%lli weightid=%lli type=%d edge_count=%lli\n", id, weightid, type, edge_count);
         fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
         fg.c_nfactor ++;
     }
@@ -176,6 +164,7 @@ long long read_factors(std::string filename, dd::FactorGraph &fg,
 long long read_edges(std::string filename, dd::FactorGraph &fg,
     std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map)
 {
+    std::cerr << "reading edges from " << filename << std::endl;
     std::ifstream file;
     file.open(filename.c_str(), std::ios::in | std::ios::binary);
     long long count = 0;
@@ -202,7 +191,7 @@ long long read_edges(std::string filename, dd::FactorGraph &fg,
         ispositive = padding;
         equal_predicate = bswap_64(equal_predicate);
         count++;
-        // printf("varid=%lli, factorid=%lli, position=%lli, predicate=%lli\n", variable_id, factor_id, position, equal_predicate);
+        printf("varid=%lli, factorid=%lli, position=%lli, predicate=%lli\n", variable_id, factor_id, position, equal_predicate);
 
         // wrong id
         if(variable_id >= fg.n_var || variable_id < 0){
