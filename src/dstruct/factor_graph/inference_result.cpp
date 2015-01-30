@@ -16,7 +16,7 @@ dd::InferenceResult::~InferenceResult() {
   delete[] assignments_free;
   delete[] assignments_evid;
   delete[] weight_values;
-  delete[] weights_isfixed[];
+  delete[] weights_isfixed;
 }
 
 void dd::InferenceResult::init(Variable * variables, Weight * const weights){

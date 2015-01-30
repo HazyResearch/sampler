@@ -19,12 +19,12 @@ namespace dd {
     int * multinomial_tallies; // this might be slow...
 
     // array of sum of samples for each variable
-    double * const agg_means; 
+    double * agg_means; 
     // array of number of samples for each variable
-    double * const agg_nsamples; 
+    double * agg_nsamples; 
     // assignment to variables, see variable.h for more detail
-    VariableValue * const assignments_free;
-    VariableValue * const assignments_evid;
+    VariableValue * assignments_free;
+    VariableValue * assignments_evid;
     double * const weight_values; // array of weight values
     bool * const weights_isfixed; // array of whether weight is fixed
 

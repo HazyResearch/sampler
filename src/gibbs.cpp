@@ -1,5 +1,7 @@
 
 #include "gibbs.h"
+#include "io/partition.h"
+#include "dstruct/factor_graph/inference_result.h"
 
 /*
  * Parse input arguments
@@ -57,7 +59,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   int n_datacopy = cmd_parser.n_datacopy->getValue();
   double reg_param = cmd_parser.reg_param->getValue();
   bool is_quiet = cmd_parser.quiet->getValue();
-  int partition = cmd_parser.partition->getValue();
+  int num_partitions = cmd_parser.num_partitions->getValue();
 
   Meta meta = read_meta(fg_file); 
 
@@ -83,7 +85,7 @@ void gibbs(dd::CmdParser & cmd_parser){
     std::cout << "# stepsize           : " << stepsize << std::endl;
     std::cout << "# decay              : " << decay << std::endl;
     std::cout << "# regularization     : " << reg_param << std::endl;
-    std::cout << "# partition          : " << partition << std::endl;
+    std::cout << "# num_partitions     : " << num_partitions << std::endl;
     std::cout << "################################################" << std::endl;
     std::cout << "# IGNORE -s (n_samples/l. epoch). ALWAYS -s 1. #" << std::endl;
     std::cout << "# IGNORE -t (threads). ALWAYS USE ALL THREADS. #" << std::endl;
@@ -101,30 +103,91 @@ void gibbs(dd::CmdParser & cmd_parser){
   numa_run_on_node(0);
   numa_set_localalloc();
 
-  // load factor graph
-  dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
-  fg.load(cmd_parser, is_quiet);
-  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
-
   // number of learning epochs
   // the factor graph is copied on each NUMA node, so the total epochs =
   // epochs specified / number of NUMA nodes
   int numa_aware_n_learning_epoch = (int)(n_learning_epoch/n_numa_node) + 
-                            (n_learning_epoch%n_numa_node==0?0:1);
-
-  // learning
-  gibbs.learn(numa_aware_n_learning_epoch, n_samples_per_learning_epoch, 
-    stepsize, decay, reg_param, is_quiet);
-
-  // dump weights
-  gibbs.dump_weights(is_quiet);
-
+    (n_learning_epoch%n_numa_node==0?0:1);
   // number of inference epochs
   int numa_aware_n_epoch = (int)(n_inference_epoch/n_numa_node) + 
-                            (n_inference_epoch%n_numa_node==0?0:1);
+    (n_inference_epoch%n_numa_node==0?0:1);
 
-  // inference
-  gibbs.inference(numa_aware_n_epoch, is_quiet);
-  gibbs.aggregate_results_and_dump(is_quiet);
+  if (num_partitions == 0) {
+    dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
+    fg.load(cmd_parser, is_quiet);
+    std::cerr << "after loading" << std::endl;
+    dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+    std::cerr << "created gibbs sampling object" << std::endl;
+
+    // learning
+    gibbs.learn(numa_aware_n_learning_epoch, n_samples_per_learning_epoch, 
+      stepsize, decay, reg_param, is_quiet);
+
+    // dump weights
+    gibbs.dump_weights(is_quiet);
+
+    // inference
+    gibbs.inference(numa_aware_n_epoch, is_quiet);
+    gibbs.aggregate_results_and_dump(is_quiet);
+
+  } else {
+
+    // partition
+    // n_datacopy = 1;
+    // std::string partition_variableids_file = cmd_parser.partition_variableids_file->getValue();
+    // std::string partition_factorids_file = cmd_parser.partition_factorids_file->getValue();
+    // Partition partition(num_partitions, meta.num_weights, partition_variableids_file, partition_factorids_file);
+    
+    // // inference result
+    // dd::InferenceResult infrs(meta.num_variables, meta.num_weights);
+    // meta = partition.metas[0];
+    // dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
+    // // load weights
+    // fg.load_weights(cmd_parser, is_quiet);
+
+    // dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+
+    // // id offsets
+    // std::vector<long> vid_offsets, fid_offsets, tally_offsets;
+    // long vid_offset = 0, fid_offset = 0, tally_offset = 0;
+    // for (int i = 0; i < num_partitions; i++) {
+    //   vid_offsets.push_back(vid_offset);
+    //   fid_offsets.push_back(fid_offset);
+    //   vid_offset += partition.metas[i-1].num_variables;
+    //   fid_offset += partition.metas[i-1].num_factors;
+    // }
+    // bool tally_calculated = false;
+
+    // // for each partition, load factor graph and sample it
+    // for (int i = 0; i < numa_aware_n_learning_epoch; i++) {
+    //   for (int j = 0; j < num_partitions; j++) {
+    //     if (!tally_calculated) {
+    //       tally_offsets.push_back(tally_offset);
+    //       tally_offset += fg.infrs->ntallies;
+    //     }
+    //     meta = partition.metas[j];
+    //     // reload factor graph
+    //     fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+    //       partition.numbers[j], infrs, j, vid_offsets[j], fid_offsets[j], tally_offsets[j],
+    //       partition.vid_maps[j], partition.fid_maps[j]);
+    //     // learn
+    //     gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet);
+    //   }
+    //   tally_calculated = true;
+    // }
+    // gibbs.dump_weights(is_quiet);
+
+    // // for each partition, load factor graph and sample it
+    // for (int i = 0; i < numa_aware_n_epoch; i++) {
+    //   for (int j = 0; j < num_partitions; j++) {
+    //     // reload factor graph
+    //     // inference
+    //     gibbs.inference(1, is_quiet);
+    //   }
+    // }
+
+    // gibbs.aggregate_results_and_dump(is_quiet);
+
+  } // end if partition
 
 }
