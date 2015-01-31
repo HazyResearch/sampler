@@ -2,6 +2,7 @@
 #include "gibbs.h"
 #include "io/partition.h"
 #include "dstruct/factor_graph/inference_result.h"
+#include <fstream>
 
 /*
  * Parse input arguments
@@ -170,7 +171,7 @@ void gibbs(dd::CmdParser & cmd_parser){
     for (int i = 0; i < num_partitions; i++) {
       std::cerr << "loading variables from partition " << i << std::endl;
       long ntallies = fg.reload_variables(partition.metas[i].num_variables, cmd_parser,
-        partition.numbers[i], partition.vid_maps[i]);
+        partition.numbers[i], partition.vid_maps[i], partition.vid_reverse_maps[i]);
       tally_offsets.push_back(tally_offset);
       tally_offset += ntallies;
       infrs.init_variables(fg.variables, partition.metas[i].num_variables, vid_offsets[i]);
@@ -191,7 +192,7 @@ void gibbs(dd::CmdParser & cmd_parser){
         // 
         fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
           partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
-          partition.vid_maps[j], partition.fid_maps[j]);
+          partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
         dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
         // learn
         gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
@@ -201,16 +202,53 @@ void gibbs(dd::CmdParser & cmd_parser){
     dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
     gibbs.dump_weights(is_quiet);
 
-    // // for each partition, load factor graph and sample it
-    // for (int i = 0; i < numa_aware_n_epoch; i++) {
-    //   for (int j = 0; j < num_partitions; j++) {
-    //     // reload factor graph
-    //     // inference
-    //     gibbs.inference(1, is_quiet);
+    // for each partition, load factor graph and sample it
+    for (int i = 0; i < numa_aware_n_epoch; i++) {
+      std::cerr << "======================================================" << std::endl;
+      for (int j = 0; j < num_partitions; j++) {
+        std::cerr << "------------------------------------------------------" << std::endl;
+        meta = partition.metas[j];
+        // reload factor graph
+        fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+          partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+          partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
+        dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+        // inference
+        gibbs.inference(1, is_quiet, i);
+        std::cerr << "assignments" << std::endl;
+        // for (int k = 0; k < meta.num_variables; k++) {
+        //   std::cerr << k << " " << fg.infrs->agg_means[k] << " " << fg.infrs->agg_nsamples[k] << std::endl;
+        // }
+      }
+    }
+    // print id mapping
+    // for (int i = 0; i <num_partitions; i++) {
+    //   std::cerr << "partition " << i << std::endl;
+    //   std::unordered_map<long, long> map = *(partition.vid_maps[i]);
+    //   for (auto entry = map.begin(); entry != map.end(); entry++) {
+    //     std::cerr << entry->first << " " << entry->second << std::endl;
+    //   }
+    //   map = *(partition.vid_reverse_maps[i]);
+    //   for (auto entry = map.begin(); entry != map.end(); entry++) {
+    //     std::cerr << entry->first << " " << entry->second << std::endl;
     //   }
     // }
 
-    // gibbs.aggregate_results_and_dump(is_quiet);
+    // dump results
+    std::string filename_text = cmd_parser.output_folder->getValue() + "/inference_result.out.text";
+    std::ofstream fout_text(filename_text.c_str());
+    fout_text.close();
+
+    // load each partition and dump
+    for (int j = 0; j < num_partitions; j++) {
+      meta = partition.metas[j];
+      // reload factor graph
+      fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+        partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+        partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
+      dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+      gibbs.aggregate_results_and_dump(is_quiet, partition.vid_reverse_maps[j]);
+    }
 
   } // end if partition
 

@@ -54,9 +54,9 @@ void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet,
       n_thread_per_numa, i));
   }
 
-  for(int i=0;i<=n_numa_nodes;i++){
-    single_node_samplers[i].clear_variabletally();
-  }
+  // for(int i=0;i<=n_numa_nodes;i++){
+  //   single_node_samplers[i].clear_variabletally();
+  // }
 
   // inference epochs
   for(int i_epoch=start_epoch;i_epoch<n_epoch+start_epoch;i_epoch++){
@@ -186,7 +186,8 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
     double elapsed = t.elapsed();
     if (!is_quiet) {
       std::cout << "" << elapsed << " sec.";
-      std::cout << ","  << (nvar*nnode)/elapsed << " vars/sec." << ",stepsize=" << current_stepsize << ",lmax=" << lmax << ",l2=" << sqrt(l2)/current_stepsize << std::endl;
+      std::cout << ","  << (nvar*nnode)/elapsed << " vars/sec." << ",stepsize=" 
+      << current_stepsize << ",lmax=" << lmax << ",l2=" << sqrt(l2)/current_stepsize << std::endl;
     }
 
     current_stepsize = current_stepsize * decay;
@@ -228,8 +229,16 @@ void dd::GibbsSampling::dump_weights(const bool is_quiet){
   fout_text.close();
 }
 
-void dd::GibbsSampling::aggregate_inference_results(double *agg_means, 
-  double *agg_nsamples, int *multinomial_tallies) {
+
+void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, 
+  std::unordered_map<long, long> *vid_reverse_map){
+
+  // sum of variable assignments
+  double * agg_means = new double[factorgraphs[0].n_var];
+  // number of samples
+  double * agg_nsamples = new double[factorgraphs[0].n_var];
+  int * multinomial_tallies = new int[factorgraphs[0].infrs->ntallies];
+
   for(long i=0;i<factorgraphs[0].n_var;i++){
     agg_means[i] = 0;
     agg_nsamples[i] = 0;
@@ -246,39 +255,36 @@ void dd::GibbsSampling::aggregate_inference_results(double *agg_means,
       const Variable & variable = factorgraphs[0].variables[i];
       agg_means[variable.id] += cfg.infrs->agg_means[variable.id];
       agg_nsamples[variable.id] += cfg.infrs->agg_nsamples[variable.id];
-    }
+    } 
     for(long i=0;i<factorgraphs[0].infrs->ntallies;i++){
       multinomial_tallies[i] += cfg.infrs->multinomial_tallies[i];
     }
   }
-}
 
-void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
-
-  // sum of variable assignments
-  double * agg_means = new double[factorgraphs[0].n_var];
-  // number of samples
-  double * agg_nsamples = new double[factorgraphs[0].n_var];
-  int * multinomial_tallies = new int[factorgraphs[0].infrs->ntallies];
-
-  aggregate_inference_results(agg_means, agg_nsamples, multinomial_tallies);
+  std::cerr << "@@@@@@@@@@@@dumping" << std::endl;
+  for(long i=0;i<factorgraphs[0].n_var;i++){
+    std::cerr << agg_means[i] << " " << agg_nsamples[i] << std::endl;
+  }
 
   // inference snippets
-  if (!is_quiet) {
+  if (!is_quiet && vid_reverse_map == NULL) {
     std::cout << "INFERENCE SNIPPETS (QUERY VARIABLES):" << std::endl;
     int ct = 0;
     for(long i=0;i<factorgraphs[0].n_var;i++){
       const Variable & variable = factorgraphs[0].variables[i];
       if(variable.is_evid == false){
         ct ++;
-        std::cout << "   " << variable.id << " EXP=" 
-                  << agg_means[variable.id]/agg_nsamples[variable.id] << "  NSAMPLE=" 
-                  << agg_nsamples[variable.id] << std::endl;
+        long vid = variable.id;
+        std::cout << "   " << vid << " EXP=" 
+                  << agg_means[vid]/agg_nsamples[vid] << "  NSAMPLE=" 
+                  << agg_nsamples[vid] << std::endl;
 
         if(variable.domain_type != DTYPE_BOOLEAN){
           if(variable.domain_type == DTYPE_MULTINOMIAL){
             for(int j=variable.lower_bound;j<=variable.upper_bound;j++){
-              std::cout << "        @ " << j << " -> " << 1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[variable.id] << std::endl;
+              std::cout << "        @ " << j << " -> " 
+              << 1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[vid] 
+              << std::endl;
             }
           }else{
             std::cerr << "ERROR: Only support boolean and multinomial variables for now!" << std::endl;
@@ -298,18 +304,22 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
   std::string filename_text = p_cmd_parser->output_folder->getValue() + 
     "/inference_result.out.text";
   std::cout << "DUMPING... TEXT    : " << filename_text << std::endl;
-  std::ofstream fout_text(filename_text.c_str());
+  std::ofstream fout_text(filename_text.c_str(), std::ios::app);
   for(long i=0;i<factorgraphs[0].n_var;i++){
     const Variable & variable = factorgraphs[0].variables[i];
-    if(variable.is_evid == true){
-      continue;
+    if (variable.is_evid == true) continue;
+    long vid = variable.id;
+    if (vid_reverse_map != NULL) {
+      vid = (*vid_reverse_map)[vid];
     }
     
     if(variable.domain_type != DTYPE_BOOLEAN){
       if(variable.domain_type == DTYPE_MULTINOMIAL){
         for(int j=variable.lower_bound;j<=variable.upper_bound;j++){
           
-          fout_text << variable.id << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[variable.id]) << std::endl;
+          fout_text << vid << " " << j << " " 
+          << (1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[variable.id]) 
+          << std::endl;
 
         }
       }else{
@@ -317,13 +327,13 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
         assert(false);
       }
     }else{
-      fout_text << variable.id << " " << 1 << " " << (agg_means[variable.id]/agg_nsamples[variable.id]) << std::endl;
+      fout_text << vid << " " << 1 << " " << (agg_means[variable.id]/agg_nsamples[variable.id]) << std::endl;
 
     }
   }
   fout_text.close();
 
-  if (is_quiet) return;
+  if (is_quiet || vid_reverse_map != NULL) return;
   
   // show a histogram of inference results
   std::cout << "INFERENCE CALIBRATION (QUERY BINS):" << std::endl;

@@ -176,13 +176,15 @@ namespace dd{
     void reload(long _nvars, long _nfactors, long _nedges, 
       const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
       long _variableid_offset, long _tally_offset,
-      std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map);
+      std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map,
+      std::unordered_map<long, long> *vid_reverse_map);
 
     /** 
      * Reloads variables from a given partition
      */
     long reload_variables(long _nvars, const CmdParser & cmd, 
-      std::string& partition_id_str, std::unordered_map<long, long> *vid_map);
+      std::string& partition_id_str, std::unordered_map<long, long> *vid_map,
+      std::unordered_map<long, long> *vid_reverse_map);
 
     /**
      * Sorts the variables, factors, and weights in ascending id order.

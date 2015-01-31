@@ -90,7 +90,7 @@ void dd::FactorGraph::update_weight(const Variable & variable){
         // using a sample of the variable.
         infrs->weight_values[ws[i]] += 
           stepsize * (this->template potential<false>(fs[i]) - this->template potential<true>(fs[i]));
-        std::cerr << "update weight " << ws[i] << " " << infrs->weight_values[ws[i]] << std::endl;
+        // std::cerr << "update weight " << ws[i] << " " << infrs->weight_values[ws[i]] << std::endl;
       }
     } else if (variable.domain_type == DTYPE_MULTINOMIAL) {
       // two weights need to be updated
@@ -186,7 +186,7 @@ void dd::FactorGraph::load_weights(const CmdParser & cmd, const bool is_quiet) {
 }
 
 long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::string& partition_id_str,
-  std::unordered_map<long, long> *vid_map) {
+  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *vid_reverse_map) {
   n_var = _nvars;
   c_nvar = 0; 
   n_evid = 0;
@@ -197,7 +197,7 @@ long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::
   std::string variable_file = cmd.variable_file->getValue();
   std::string filename_variables = variable_file + ".part" + partition_id_str;
 
-  long n_loaded = read_variables(filename_variables, *this, vid_map);
+  long n_loaded = read_variables(filename_variables, *this, vid_map, vid_reverse_map);
   assert(n_loaded == n_var);
   long ntallies = 0;
   for(long t=0;t<n_var;t++){
@@ -214,7 +214,8 @@ long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::
 void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
   long _variableid_offset, long _tally_offset,
-  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map) {
+  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map,
+  std::unordered_map<long, long> *vid_reverse_map) {
   // clear variables, factors, edges of the current graph
   n_var = _nvars;
   n_factor = _nfactors;
@@ -256,7 +257,7 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   std::string filename_factors = factor_file + ".part" + partition_id_str;
   std::string filename_variables = variable_file + ".part" + partition_id_str;
 
-  long long n_loaded = read_variables(filename_variables, *this, vid_map);
+  long long n_loaded = read_variables(filename_variables, *this, vid_map, vid_reverse_map);
   assert(n_loaded == n_var);
   std::cout << "LOADED VARIABLES: #" << n_loaded << std::endl;
   std::cout << "         N_QUERY: #" << n_query << std::endl;

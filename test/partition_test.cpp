@@ -40,7 +40,7 @@ TEST(PartitionTest, integration) {
 	const char* argv[28] = {
 		"dw", "gibbs", "-w", "./test/partition/graph.weights", "-v", "./test/partition/graph.variables", 
 		"-f", "./test/partition/graph.factors", "-e", "./test/partition/graph.edges", "-m", "./test/partition/graph.meta",
-		"-o", ".", "-l", "300", "-i", "3", "-s", "1", "--alpha", "0.1", "--num_partitions",
+		"-o", "./test/partition/", "-l", "300", "-i", "300", "-s", "1", "--alpha", "0.1", "--num_partitions",
 		"3", "--partition_variableids_file", "./test/partition/graph.partition.variables", "--partition_factorids_file", 
 		"./test/partition/graph.partition.factors"
 	};

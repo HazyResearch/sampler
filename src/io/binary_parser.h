@@ -33,7 +33,8 @@ long long read_weights(std::string filename, dd::FactorGraph &);
  * Loads variables from the given file into the given factor graph
  */
 long long read_variables(std::string filename, dd::FactorGraph &fg,
-  std::unordered_map<long, long> *vid_map = NULL);
+  std::unordered_map<long, long> *vid_map = NULL,
+  std::unordered_map<long, long> *vid_reverse_map = NULL);
 
 /**
  * Loads factors from the given file into the given factor graph

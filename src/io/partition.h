@@ -20,7 +20,7 @@ public:
 	std::vector<std::unordered_map<long, long> *> vid_maps;
 	std::vector<std::unordered_map<long, long> *> fid_maps;
 	// new id -> old id
-	std::vector<std::unordered_map<long, long> *> vid_reverse_map;
+	std::vector<std::unordered_map<long, long> *> vid_reverse_maps;
 
 	Partition(int _num_partitions, int _num_weights, std::string variable_file, std::string factor_file);
 	~Partition();
