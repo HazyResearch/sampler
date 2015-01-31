@@ -16,6 +16,8 @@ Partition::Partition(int _num_partitions, int _num_weights, std::string variable
 		vid_maps.push_back(map);
 		map = new std::unordered_map<long, long>;
 		fid_maps.push_back(map);
+		map = new std::unordered_map<long, long>;
+		vid_reverse_map.push_back(map);
 	}
 	load_mapping(variable_file, variable_pid_map);
 	load_mapping(factor_file, factor_pid_map);
@@ -96,5 +98,6 @@ Partition::~Partition() {
 	for (int i = 0; i < num_partitions; i++) {
 		delete vid_maps[i];
 		delete fid_maps[i];
+		delete vid_reverse_map[i];
 	}
 }

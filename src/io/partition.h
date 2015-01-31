@@ -19,6 +19,8 @@ public:
 	// old id -> new id (new id must be continous and 0-based)
 	std::vector<std::unordered_map<long, long> *> vid_maps;
 	std::vector<std::unordered_map<long, long> *> fid_maps;
+	// new id -> old id
+	std::vector<std::unordered_map<long, long> *> vid_reverse_map;
 
 	Partition(int _num_partitions, int _num_weights, std::string variable_file, std::string factor_file);
 	~Partition();
@@ -44,9 +46,10 @@ private:
 	// size is the size of a record in bytes, use map as id -> mapping 
 	std::vector<long> partition(std::string filename, int size, std::unordered_map<long, int> map);
 
-	// variable id -> partition id map
+	// id -> partition id map
 	std::unordered_map<long, int> variable_pid_map;
 	std::unordered_map<long, int> factor_pid_map;
+
 	int num_partitions;
 };
 
