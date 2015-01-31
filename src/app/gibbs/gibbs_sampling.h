@@ -59,7 +59,7 @@ namespace dd{
      * n_epoch number of epochs. A epoch is one pass over data
      * is_quiet whether to compress information display
      */
-    void inference(const int & n_epoch, const bool is_quiet);
+    void inference(const int & n_epoch, const bool is_quiet, const int & start_epoch = 0);
 
     /**
      * Aggregates results from different NUMA nodes

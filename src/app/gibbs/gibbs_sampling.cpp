@@ -38,7 +38,8 @@ dd::GibbsSampling::GibbsSampling(FactorGraph * const _p_fg,
     }
   };
 
-void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet){
+void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet, 
+  const int & start_epoch){
 
   Timer t_total;
 
@@ -58,7 +59,7 @@ void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet){
   }
 
   // inference epochs
-  for(int i_epoch=0;i_epoch<n_epoch;i_epoch++){
+  for(int i_epoch=start_epoch;i_epoch<n_epoch+start_epoch;i_epoch++){
 
     if (!is_quiet) {
       std::cout << std::setprecision(2) << "INFERENCE EPOCH " << i_epoch * nnode <<  "~" 
@@ -227,14 +228,8 @@ void dd::GibbsSampling::dump_weights(const bool is_quiet){
   fout_text.close();
 }
 
-void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
-
-  // sum of variable assignments
-  double * agg_means = new double[factorgraphs[0].n_var];
-  // number of samples
-  double * agg_nsamples = new double[factorgraphs[0].n_var];
-  int * multinomial_tallies = new int[factorgraphs[0].infrs->ntallies];
-
+void dd::GibbsSampling::aggregate_inference_results(double *agg_means, 
+  double *agg_nsamples, int *multinomial_tallies) {
   for(long i=0;i<factorgraphs[0].n_var;i++){
     agg_means[i] = 0;
     agg_nsamples[i] = 0;
@@ -256,6 +251,17 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
       multinomial_tallies[i] += cfg.infrs->multinomial_tallies[i];
     }
   }
+}
+
+void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
+
+  // sum of variable assignments
+  double * agg_means = new double[factorgraphs[0].n_var];
+  // number of samples
+  double * agg_nsamples = new double[factorgraphs[0].n_var];
+  int * multinomial_tallies = new int[factorgraphs[0].infrs->ntallies];
+
+  aggregate_inference_results(agg_means, agg_nsamples, multinomial_tallies);
 
   // inference snippets
   if (!is_quiet) {
@@ -271,8 +277,8 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
 
         if(variable.domain_type != DTYPE_BOOLEAN){
           if(variable.domain_type == DTYPE_MULTINOMIAL){
-            for(int j=0;j<=variable.upper_bound;j++){
-              std::cout << "        @ " << j << " -> " << 1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id] << std::endl;
+            for(int j=variable.lower_bound;j<=variable.upper_bound;j++){
+              std::cout << "        @ " << j << " -> " << 1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[variable.id] << std::endl;
             }
           }else{
             std::cerr << "ERROR: Only support boolean and multinomial variables for now!" << std::endl;
@@ -301,9 +307,9 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
     
     if(variable.domain_type != DTYPE_BOOLEAN){
       if(variable.domain_type == DTYPE_MULTINOMIAL){
-        for(int j=0;j<=variable.upper_bound;j++){
+        for(int j=variable.lower_bound;j<=variable.upper_bound;j++){
           
-          fout_text << variable.id << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id]) << std::endl;
+          fout_text << variable.id << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j - variable.lower_bound]/agg_nsamples[variable.id]) << std::endl;
 
         }
       }else{
