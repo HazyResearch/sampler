@@ -75,7 +75,7 @@ std::vector<long> Partition::partition(std::string filename, int size, std::unor
 		if (!file.read((char *)&idn, 8)) break;
 		file.read(buf, size);
 		idh = bswap_64(idn);
-		pid = variable_pid_map[idh];
+		pid = map[idh];
 		outstreams[pid]->write((char *)&idn, 8);
 		outstreams[pid]->write(buf, size);
 		counts[pid] += 1;

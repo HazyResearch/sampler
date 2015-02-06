@@ -50,3 +50,18 @@ TEST(PartitionTest, integration) {
 
 }
 
+TEST(PartitionTest, integration2) {
+
+	const char* argv[28] = {
+		"dw", "gibbs", "-w", "./test/partition2/graph.weights", "-v", "./test/partition2/graph.variables", 
+		"-f", "./test/partition2/graph.factors", "-e", "./test/partition2/graph.edges", "-m", "./test/partition2/graph.meta",
+		"-o", "./test/partition2/", "-l", "300", "-i", "300", "-s", "1", "--alpha", "0.1", "--num_partitions",
+		"3", "--partition_variableids_file", "./test/partition2/graph.partition.variables", "--partition_factorids_file", 
+		"./test/partition2/graph.partition.factors"
+	};
+
+	dd::CmdParser cmd_parser = parse_input(28, (char **)argv);
+	gibbs(cmd_parser);
+
+}
+
