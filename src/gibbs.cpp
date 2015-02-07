@@ -3,6 +3,7 @@
 #include "io/partition.h"
 #include "dstruct/factor_graph/inference_result.h"
 #include <fstream>
+#include <thread>
 
 /*
  * Parse input arguments
@@ -156,11 +157,17 @@ void gibbs(dd::CmdParser & cmd_parser){
 
     meta = partition.metas[0];
     dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
+    dd::FactorGraph fg_buffer(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
     // first pass over data, read variables and weights to init infrs
     // load weights
     fg.load_weights(cmd_parser, is_quiet);
     infrs.init_weights(fg.weights);
+    fg_buffer.load_weights(cmd_parser, is_quiet);
     std::cerr << "initial weights" << infrs.weight_values[0] << std::endl;
+
+    // fg working and fg loading 
+    dd::FactorGraph::fg_work_ptr = &fg;
+    dd::FactorGraph::fg_load_ptr = &fg_buffer;
 
     // load variables, init variable assignments in infrs
     // variable ids are mapped to a continous range starting from 0
@@ -177,6 +184,7 @@ void gibbs(dd::CmdParser & cmd_parser){
     infrs.init_tallies(tally_offset);
 
     std::cerr << "======================================================" << std::endl;
+    std::thread work_thread, load_thread;
 
     // for each partition, load factor graph and sample it
     for (int i = 0; i < numa_aware_n_learning_epoch; i++) {
@@ -187,10 +195,13 @@ void gibbs(dd::CmdParser & cmd_parser){
         meta = partition.metas[j];
         // reload factor graph
         // variable and factor ids are mapped to a continous range starting from 0
-        // 
+        // load_thread = std::thread(&dd::FactorGraph::reload, &fg, meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+        //   partition.numbers[j], &infrs, vid_offsets[j], tally_offsets[j],
+        //   partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
         fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-          partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+          partition.numbers[j], &infrs, vid_offsets[j], tally_offsets[j],
           partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
+        load_thread.join();
         dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
         // learn
         gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
@@ -208,10 +219,10 @@ void gibbs(dd::CmdParser & cmd_parser){
         std::cerr << "------------------------------------------------------" << std::endl;
         meta = partition.metas[j];
         // reload factor graph
-        fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-          partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
-          partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
-        dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
+        // fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+        //   partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+        //   partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
+        // dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
         // inference
         gibbs.inference(1, is_quiet, i);
         std::cerr << "assignments" << std::endl;
@@ -242,9 +253,9 @@ void gibbs(dd::CmdParser & cmd_parser){
     for (int j = 0; j < num_partitions; j++) {
       meta = partition.metas[j];
       // reload factor graph
-      fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-        partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
-        partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
+      // fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
+      //   partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
+      //   partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
       dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
       gibbs.aggregate_results_and_dump(is_quiet, partition.vid_reverse_maps[j]);
     }

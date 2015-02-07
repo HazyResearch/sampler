@@ -212,7 +212,7 @@ long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::
 
 
 void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
-  const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
+  const CmdParser & cmd, std::string partition_id_str, InferenceResult *_infrs,
   long _variableid_offset, long _tally_offset,
   std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map,
   std::unordered_map<long, long> *vid_reverse_map) {
@@ -240,13 +240,13 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   // repoint infrs
   infrs->nvars = n_var;
   infrs->ntallies = 0;
-  infrs->multinomial_tallies = &_infrs.multinomial_tallies[_tally_offset];
-  infrs->agg_means = &_infrs.agg_means[_variableid_offset];
-  infrs->agg_nsamples = &_infrs.agg_nsamples[_variableid_offset];
-  infrs->assignments_free = &_infrs.assignments_free[_variableid_offset];
-  infrs->assignments_evid = &_infrs.assignments_evid[_variableid_offset];
-  infrs->weight_values = _infrs.weight_values;
-  infrs->weights_isfixed = _infrs.weights_isfixed;
+  infrs->multinomial_tallies = &(_infrs->multinomial_tallies[_tally_offset]);
+  infrs->agg_means = &(_infrs->agg_means[_variableid_offset]);
+  infrs->agg_nsamples = &(_infrs->agg_nsamples[_variableid_offset]);
+  infrs->assignments_free = &(_infrs->assignments_free[_variableid_offset]);
+  infrs->assignments_evid = &(_infrs->assignments_evid[_variableid_offset]);
+  infrs->weight_values = _infrs->weight_values;
+  infrs->weights_isfixed = _infrs->weights_isfixed;
 
   // get factor graph file names from command line arguments
   std::string variable_file = cmd.variable_file->getValue();

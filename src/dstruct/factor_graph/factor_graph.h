@@ -174,7 +174,7 @@ namespace dd{
      * Reloads a factor graph from the given partition
      */
     void reload(long _nvars, long _nfactors, long _nedges, 
-      const CmdParser & cmd, std::string& partition_id_str, InferenceResult& _infrs,
+      const CmdParser & cmd, std::string partition_id_str, InferenceResult *_infrs,
       long _variableid_offset, long _tally_offset,
       std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map,
       std::unordered_map<long, long> *vid_reverse_map);
