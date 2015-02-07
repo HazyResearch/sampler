@@ -61,7 +61,7 @@ void dd::InferenceResult::init_variables(const Variable * variables, long num_va
   for (long t = 0; t < num_variables; t++) {
     const Variable & variable = variables[t];
     pos = variable.id + idoffset;
-    std::cerr << "pos " << pos << std::endl;
+    // std::cerr << "pos " << pos << std::endl;
     assignments_free[pos] = variable.assignment_free;
     assignments_evid[pos] = variable.assignment_evid;
     agg_means[pos] = 0.0;

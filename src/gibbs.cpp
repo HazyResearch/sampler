@@ -138,19 +138,17 @@ void gibbs(dd::CmdParser & cmd_parser){
     Partition partition(num_partitions, meta.num_weights, partition_variableids_file, partition_factorids_file);
     std::cerr << "partitioning factor graph..." << std::endl;
     partition.partition_factor_graph(variable_file, factor_file, edge_file);
+    std::cerr << "finished partitioning factor graph..." << std::endl;
 
     // id offsets
     // variable and factor ids are mapped to a continous range starting from 0
     // each partition has an id offset
     std::vector<long> vid_offsets, fid_offsets, tally_offsets;
-    long vid_offset = 0, fid_offset = 0;
+    long vid_offset = 0;
     for (int i = 0; i < num_partitions; i++) {
-      std::cerr << "partition " << i << " vid offset " << vid_offset 
-        << " fid offset " << fid_offset << std::endl;
+      std::cerr << "partition " << i << " vid offset " << vid_offset << std::endl;
       vid_offsets.push_back(vid_offset);
-      // fid_offsets.push_back(fid_offset);
       vid_offset += partition.metas[i].num_variables;
-      // fid_offset += partition.metas[i].num_factors;
     }
     
     // inference result
@@ -198,6 +196,7 @@ void gibbs(dd::CmdParser & cmd_parser){
         gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
         std::cerr << "weight " << infrs.weight_values[0] << std::endl;
       }
+      stepsize *= decay;
     }
     dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
     gibbs.dump_weights(is_quiet);

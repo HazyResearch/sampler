@@ -19,7 +19,6 @@ dd::GibbsSampling::GibbsSampling(FactorGraph * const _p_fg,
 
     // max possible threads per NUMA node
     n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF))/(n_numa_nodes+1);
-    n_thread_per_numa = 1;
 
     this->factorgraphs.push_back(*p_fg);
 
@@ -261,10 +260,10 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
     }
   }
 
-  std::cerr << "@@@@@@@@@@@@dumping" << std::endl;
-  for(long i=0;i<factorgraphs[0].n_var;i++){
-    std::cerr << agg_means[i] << " " << agg_nsamples[i] << std::endl;
-  }
+  // std::cerr << "@@@@@@@@@@@@dumping" << std::endl;
+  // for(long i=0;i<factorgraphs[0].n_var;i++){
+  //   std::cerr << agg_means[i] << " " << agg_nsamples[i] << std::endl;
+  // }
 
   // inference snippets
   if (!is_quiet && vid_reverse_map == NULL) {
