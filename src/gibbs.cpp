@@ -237,6 +237,7 @@ void gibbs(dd::CmdParser & cmd_parser){
         work_thread = std::thread(&dd::GibbsSampling::inference, &gibbs, 1, is_quiet, i);
         load_thread.join();
         work_thread.join();
+        swap_ptr(fg_work_ptr, fg_load_ptr);
       }
     }
     // dump results

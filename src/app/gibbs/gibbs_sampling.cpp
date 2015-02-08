@@ -18,8 +18,8 @@ dd::GibbsSampling::GibbsSampling(FactorGraph * const _p_fg,
     }
 
     // max possible threads per NUMA node
-    // n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF))/(n_numa_nodes+1);
-    n_thread_per_numa = 1;
+    n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF))/(n_numa_nodes+1);
+    // n_thread_per_numa = 1;
 
     this->factorgraphs.push_back(*p_fg);
 
