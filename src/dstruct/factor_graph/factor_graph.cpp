@@ -3,6 +3,7 @@
 #include "io/binary_parser.h"
 #include "dstruct/factor_graph/factor_graph.h"
 #include "dstruct/factor_graph/factor.h"
+#include "common.h"
 
 bool dd::FactorGraph::is_usable(){
   return this->sorted && this->safety_check_passed;
@@ -259,17 +260,23 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
 
   long long n_loaded = read_variables(filename_variables, *this, vid_map, vid_reverse_map);
   assert(n_loaded == n_var);
-  std::cout << "LOADED VARIABLES: #" << n_loaded << std::endl;
-  std::cout << "         N_QUERY: #" << n_query << std::endl;
-  std::cout << "         N_EVID : #" << n_evid << std::endl;
+  if (DEBUG) {
+    std::cout << "LOADED VARIABLES: #" << n_loaded << std::endl;
+    std::cout << "         N_QUERY: #" << n_query << std::endl;
+    std::cout << "         N_EVID : #" << n_evid << std::endl;
+  }
 
   n_loaded = read_factors(filename_factors, *this, fid_map);
   assert(n_loaded == n_factor);
-  std::cout << "LOADED FACTORS: #" << n_loaded << std::endl;
+  if (DEBUG) {
+    std::cout << "LOADED FACTORS: #" << n_loaded << std::endl;
+  }
 
   this->sort_by_id();
   n_loaded = read_edges(filename_edges, *this, vid_map, fid_map);
-  std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
+  if (DEBUG) {
+    std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
+  }
 
   // construct edge-based store
   this->organize_graph_by_edge();

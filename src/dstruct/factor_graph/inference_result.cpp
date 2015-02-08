@@ -56,8 +56,6 @@ void dd::InferenceResult::init_variables(const Variable * variables) {
 void dd::InferenceResult::init_variables(const Variable * variables, long num_variables,
   long idoffset) {
   long pos = 0;
-  std::cerr << "nvars " << nvars << std::endl;
-  std::cerr << "idoffset " << idoffset << std::endl;
   for (long t = 0; t < num_variables; t++) {
     const Variable & variable = variables[t];
     pos = variable.id + idoffset;

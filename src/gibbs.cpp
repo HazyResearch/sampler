@@ -143,17 +143,15 @@ void gibbs(dd::CmdParser & cmd_parser){
     std::string partition_variableids_file = cmd_parser.partition_variableids_file->getValue();
     std::string partition_factorids_file = cmd_parser.partition_factorids_file->getValue();
     Partition partition(num_partitions, meta.num_weights, partition_variableids_file, partition_factorids_file);
-    std::cerr << "partitioning factor graph..." << std::endl;
+    std::cerr << "Partitioning factor graph..." << std::endl;
     partition.partition_factor_graph(variable_file, factor_file, edge_file);
-    std::cerr << "finished partitioning factor graph..." << std::endl;
 
     // id offsets
     // variable and factor ids are mapped to a continous range starting from 0
     // each partition has an id offset
-    std::vector<long> vid_offsets, fid_offsets, tally_offsets;
+    std::vector<long> vid_offsets, tally_offsets;
     long vid_offset = 0;
     for (int i = 0; i < num_partitions; i++) {
-      std::cerr << "partition " << i << " vid offset " << vid_offset << std::endl;
       vid_offsets.push_back(vid_offset);
       vid_offset += partition.metas[i].num_variables;
     }
@@ -169,7 +167,6 @@ void gibbs(dd::CmdParser & cmd_parser){
     fg.load_weights(cmd_parser, is_quiet);
     infrs.init_weights(fg.weights);
     fg_buffer.load_weights(cmd_parser, is_quiet);
-    std::cerr << "initial weights" << infrs.weight_values[0] << std::endl;
 
     // fg working and fg loading 
     dd::FactorGraph *fg_work_ptr = &fg;
@@ -178,9 +175,9 @@ void gibbs(dd::CmdParser & cmd_parser){
     // load variables, init variable assignments in infrs
     // variable ids are mapped to a continous range starting from 0
     // variable assignments in each partition are continous in infrs 
+    std::cerr << "Loading variables..." << std::endl;
     int tally_offset = 0;
     for (int i = 0; i < num_partitions; i++) {
-      std::cerr << "loading variables from partition " << i << std::endl;
       long ntallies = fg.reload_variables(partition.metas[i].num_variables, cmd_parser,
         partition.numbers[i], partition.vid_maps[i], partition.vid_reverse_maps[i]);
       tally_offsets.push_back(tally_offset);
@@ -189,7 +186,6 @@ void gibbs(dd::CmdParser & cmd_parser){
     }
     infrs.init_tallies(tally_offset);
 
-    std::cerr << "======================================================" << std::endl;
     std::thread work_thread, load_thread;
 
     // load the first partition
@@ -200,30 +196,20 @@ void gibbs(dd::CmdParser & cmd_parser){
 
     // for each partition, load factor graph and sample it
     for (int i = 0; i < numa_aware_n_learning_epoch; i++) {
-      std::cerr << "======================================================" << std::endl;
       for (int j = 0; j < num_partitions; j++) {
-        std::cerr << "------------------------------------------------------" << std::endl;
         int k = (j + 1) % num_partitions;
-        std::cerr << "loading partition " << k << std::endl;
         meta = partition.metas[k];
-        // meta = partition.metas[j];
         // reload factor graph
         // variable and factor ids are mapped to a continous range starting from 0
         load_thread = std::thread(&dd::FactorGraph::reload, fg_load_ptr, meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
           partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k],
           partition.vid_maps[k], partition.fid_maps[k], partition.vid_reverse_maps[k]);
-        // fg_work_ptr->reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-        //   partition.numbers[j], &infrs, vid_offsets[j], tally_offsets[j],
-        //   partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
-        // load_thread.join();
         dd::GibbsSampling gibbs(fg_work_ptr, &cmd_parser, n_datacopy);
-        // gibbs.learn(1, n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
         // learn
         work_thread = std::thread(&dd::GibbsSampling::learn, &gibbs, 1, 
           n_samples_per_learning_epoch, stepsize, decay, reg_param, is_quiet, i);
         work_thread.join();
         load_thread.join();
-        std::cerr << "weight " << infrs.weight_values[0] << " " << infrs.weight_values[1] << std::endl;
         swap_ptr(fg_work_ptr, fg_load_ptr);
       }
       stepsize *= decay;
@@ -237,46 +223,22 @@ void gibbs(dd::CmdParser & cmd_parser){
 
     // for each partition, load factor graph and sample it
     for (int i = 0; i < numa_aware_n_epoch; i++) {
-      std::cerr << "======================================================" << std::endl;
       for (int j = 0; j < num_partitions; j++) {
-        std::cerr << "------------------------------------------------------" << std::endl;
         int k = (j + 1) % num_partitions;
-        std::cerr << "loading partition " << k << std::endl;
         meta = partition.metas[k];
-        // meta = partition.metas[j];
         // reload factor graph
         // variable and factor ids are mapped to a continous range starting from 0
         load_thread = std::thread(&dd::FactorGraph::reload, fg_load_ptr, meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
           partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k],
           partition.vid_maps[k], partition.fid_maps[k], partition.vid_reverse_maps[k]);
         // reload factor graph
-        // fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-        //   partition.numbers[j], infrs, vid_offsets[j], tally_offsets[j],
-        //   partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
         dd::GibbsSampling gibbs(fg_work_ptr, &cmd_parser, n_datacopy);
         // inference
-        // gibbs.inference(1, is_quiet, i);
         work_thread = std::thread(&dd::GibbsSampling::inference, &gibbs, 1, is_quiet, i);
         load_thread.join();
         work_thread.join();
-        // for (int k = 0; k < meta.num_variables; k++) {
-        //   std::cerr << k << " " << fg.infrs->agg_means[k] << " " << fg.infrs->agg_nsamples[k] << std::endl;
-        // }
       }
     }
-    // print id mapping
-    // for (int i = 0; i <num_partitions; i++) {
-    //   std::cerr << "partition " << i << std::endl;
-    //   std::unordered_map<long, long> map = *(partition.vid_maps[i]);
-    //   for (auto entry = map.begin(); entry != map.end(); entry++) {
-    //     std::cerr << entry->first << " " << entry->second << std::endl;
-    //   }
-    //   map = *(partition.vid_reverse_maps[i]);
-    //   for (auto entry = map.begin(); entry != map.end(); entry++) {
-    //     std::cerr << entry->first << " " << entry->second << std::endl;
-    //   }
-    // }
-
     // dump results
     std::string filename_text = cmd_parser.output_folder->getValue() + "/inference_result.out.text";
     std::ofstream fout_text(filename_text.c_str());

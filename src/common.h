@@ -32,6 +32,8 @@
 #define LOG_2   0.693147180559945
 #define MINUS_LOG_THRESHOLD   -18.42
 
+#define DEBUG 0
+
 // 64-bit big endian to little endian
 # define bswap_64(x) \
      ((((x) & 0xff00000000000000ull) >> 56)                                   \

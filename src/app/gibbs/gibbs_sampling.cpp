@@ -87,7 +87,8 @@ void dd::GibbsSampling::inference(const int & n_epoch, const bool is_quiet,
   }
 
   double elapsed = t_total.elapsed();
-  std::cout << "TOTAL INFERENCE TIME: " << elapsed << " sec." << std::endl;
+  if (n_epoch != 1)
+    std::cout << "TOTAL INFERENCE TIME: " << elapsed << " sec." << std::endl;
 
 }
 
@@ -113,7 +114,6 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
 
   double * ori_weights = new double[nweight];
   memcpy(ori_weights, this->factorgraphs[0].infrs->weight_values, sizeof(double)*nweight);
-  std::cerr << "starts learning" << std::endl;
 
   // learning epochs
   for(int i_epoch=start_epoch;i_epoch<start_epoch+n_epoch;i_epoch++){
@@ -195,7 +195,8 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
   }
 
   double elapsed = t_total.elapsed();
-  std::cout << "TOTAL LEARNING TIME: " << elapsed << " sec." << std::endl;
+  if (n_epoch != 1)
+    std::cout << "TOTAL LEARNING TIME: " << elapsed << " sec." << std::endl;
 
 }
 
@@ -260,11 +261,6 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
       multinomial_tallies[i] += cfg.infrs->multinomial_tallies[i];
     }
   }
-
-  // std::cerr << "@@@@@@@@@@@@dumping" << std::endl;
-  // for(long i=0;i<factorgraphs[0].n_var;i++){
-  //   std::cerr << agg_means[i] << " " << agg_nsamples[i] << std::endl;
-  // }
 
   // inference snippets
   if (!is_quiet && vid_reverse_map == NULL) {
