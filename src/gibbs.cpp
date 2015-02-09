@@ -168,30 +168,31 @@ void gibbs(dd::CmdParser & cmd_parser){
     infrs.init_weights(fg.weights);
     fg_buffer.load_weights(cmd_parser, is_quiet);
 
-    // fg working and fg loading 
-    dd::FactorGraph *fg_work_ptr = &fg;
-    dd::FactorGraph *fg_load_ptr = &fg_buffer;
-
     // load variables, init variable assignments in infrs
     // variable ids are mapped to a continous range starting from 0
     // variable assignments in each partition are continous in infrs 
     std::cerr << "Loading variables..." << std::endl;
     int tally_offset = 0;
+    std::vector<long> ntallies_vector;
     for (int i = 0; i < num_partitions; i++) {
       long ntallies = fg.reload_variables(partition.metas[i].num_variables, cmd_parser,
         partition.numbers[i], partition.vid_maps[i], partition.vid_reverse_maps[i]);
       tally_offsets.push_back(tally_offset);
+      ntallies_vector.push_back(ntallies);
       tally_offset += ntallies;
       infrs.init_variables(fg.variables, partition.metas[i].num_variables, vid_offsets[i]);
     }
     infrs.init_tallies(tally_offset);
-
+    
+    // fg working and fg loading 
+    dd::FactorGraph *fg_work_ptr = &fg;
+    dd::FactorGraph *fg_load_ptr = &fg_buffer;
     std::thread work_thread, load_thread;
 
     // load the first partition
     meta = partition.metas[0];
     fg_work_ptr->reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-      partition.numbers[0], &infrs, vid_offsets[0], tally_offsets[0],
+      partition.numbers[0], &infrs, vid_offsets[0], tally_offsets[0], ntallies_vector[0],
       partition.vid_maps[0], partition.fid_maps[0], partition.vid_reverse_maps[0]);
 
     // for each partition, load factor graph and sample it
@@ -202,7 +203,7 @@ void gibbs(dd::CmdParser & cmd_parser){
         // reload factor graph
         // variable and factor ids are mapped to a continous range starting from 0
         load_thread = std::thread(&dd::FactorGraph::reload, fg_load_ptr, meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-          partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k],
+          partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k], ntallies_vector[k],
           partition.vid_maps[k], partition.fid_maps[k], partition.vid_reverse_maps[k]);
         dd::GibbsSampling gibbs(fg_work_ptr, &cmd_parser, n_datacopy);
         // learn
@@ -218,7 +219,7 @@ void gibbs(dd::CmdParser & cmd_parser){
     gibbs.dump_weights(is_quiet);
     meta = partition.metas[0];
     fg_work_ptr->reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-      partition.numbers[0], &infrs, vid_offsets[0], tally_offsets[0],
+      partition.numbers[0], &infrs, vid_offsets[0], tally_offsets[0], ntallies_vector[0],
       partition.vid_maps[0], partition.fid_maps[0], partition.vid_reverse_maps[0]);
 
     // for each partition, load factor graph and sample it
@@ -229,7 +230,7 @@ void gibbs(dd::CmdParser & cmd_parser){
         // reload factor graph
         // variable and factor ids are mapped to a continous range starting from 0
         load_thread = std::thread(&dd::FactorGraph::reload, fg_load_ptr, meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-          partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k],
+          partition.numbers[k], &infrs, vid_offsets[k], tally_offsets[k], ntallies_vector[k],
           partition.vid_maps[k], partition.fid_maps[k], partition.vid_reverse_maps[k]);
         // reload factor graph
         dd::GibbsSampling gibbs(fg_work_ptr, &cmd_parser, n_datacopy);
@@ -250,7 +251,7 @@ void gibbs(dd::CmdParser & cmd_parser){
       meta = partition.metas[j];
       // reload factor graph
       fg.reload(meta.num_variables, meta.num_factors, meta.num_edges, cmd_parser,
-        partition.numbers[j], &infrs, vid_offsets[j], tally_offsets[j],
+        partition.numbers[j], &infrs, vid_offsets[j], tally_offsets[j], ntallies_vector[j],
         partition.vid_maps[j], partition.fid_maps[j], partition.vid_reverse_maps[j]);
       dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
       gibbs.aggregate_results_and_dump(is_quiet, partition.vid_reverse_maps[j]);

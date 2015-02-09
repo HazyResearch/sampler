@@ -91,7 +91,6 @@ void dd::FactorGraph::update_weight(const Variable & variable){
         // using a sample of the variable.
         infrs->weight_values[ws[i]] += 
           stepsize * (this->template potential<false>(fs[i]) - this->template potential<true>(fs[i]));
-        // std::cerr << "update weight " << ws[i] << " " << infrs->weight_values[ws[i]] << std::endl;
       }
     } else if (variable.domain_type == DTYPE_MULTINOMIAL) {
       // two weights need to be updated
@@ -214,7 +213,7 @@ long dd::FactorGraph::reload_variables(long _nvars, const CmdParser & cmd, std::
 
 void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
   const CmdParser & cmd, std::string partition_id_str, InferenceResult *_infrs,
-  long _variableid_offset, long _tally_offset,
+  long _variableid_offset, long _tally_offset, long ntallies,
   std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map,
   std::unordered_map<long, long> *vid_reverse_map) {
   // clear variables, factors, edges of the current graph
@@ -240,7 +239,8 @@ void dd::FactorGraph::reload(long _nvars, long _nfactors, long _nedges,
 
   // repoint infrs
   infrs->nvars = n_var;
-  infrs->ntallies = 0;
+  infrs->ntallies = ntallies;
+  infrs->nweights = _infrs->nweights;
   infrs->multinomial_tallies = &(_infrs->multinomial_tallies[_tally_offset]);
   infrs->agg_means = &(_infrs->agg_means[_variableid_offset]);
   infrs->agg_nsamples = &(_infrs->agg_nsamples[_variableid_offset]);
