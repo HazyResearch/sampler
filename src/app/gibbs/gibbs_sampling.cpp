@@ -300,7 +300,12 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
   std::string filename_text = p_cmd_parser->output_folder->getValue() + 
     "/inference_result.out.text";
   std::cout << "DUMPING... TEXT    : " << filename_text << std::endl;
-  std::ofstream fout_text(filename_text.c_str(), std::ios::app);
+  std::ofstream fout_text;
+  if (vid_reverse_map == NULL) {
+    fout_text.open(filename_text.c_str());
+  } else {
+    fout_text.open(filename_text.c_str(), std::ios::app);
+  }
   for(long i=0;i<factorgraphs[0].n_var;i++){
     const Variable & variable = factorgraphs[0].variables[i];
     if (variable.is_evid == true) continue;
