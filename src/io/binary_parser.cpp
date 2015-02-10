@@ -184,8 +184,8 @@ long long read_edges(std::string filename, dd::FactorGraph &fg,
         variable_id = bswap_64(variable_id);
         factor_id = bswap_64(factor_id);
         if (vid_map) {
-            variable_id = get_or_insert(vid_map, variable_id, count);
-            factor_id = get_or_insert(fid_map, factor_id, count);
+            variable_id = get_or_insert(vid_map, variable_id, -1);
+            factor_id = get_or_insert(fid_map, factor_id, -1);
         }
         position = bswap_64(position);
         ispositive = padding;
