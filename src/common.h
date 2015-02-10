@@ -34,6 +34,10 @@
 
 #define DEBUG 0
 
+#define VARIABLE_RECORD_SIZE 35
+#define FACTOR_RECORD_SIZE 26
+#define EDGE_RECORD_SIZE 33
+
 // 64-bit big endian to little endian
 # define bswap_64(x) \
      ((((x) & 0xff00000000000000ull) >> 56)                                   \

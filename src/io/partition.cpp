@@ -35,21 +35,21 @@ void Partition::load_mapping(std::string filename, std::unordered_map<long, int>
 }
 
 void Partition::partition_variables(std::string filename) {
-	std::vector<long> counts = partition(filename, 35, variable_pid_map);
+	std::vector<long> counts = partition(filename, VARIABLE_RECORD_SIZE, variable_pid_map);
 	for (int i = 0; i < num_partitions; i++) {
 		metas[i].num_variables = counts[i];
 	}
 }
 
 void Partition::partition_factors(std::string filename) {
-	std::vector<long> counts = partition(filename, 26, factor_pid_map);
+	std::vector<long> counts = partition(filename, FACTOR_RECORD_SIZE, factor_pid_map);
 	for (int i = 0; i < num_partitions; i++) {
 		metas[i].num_factors = counts[i];
 	}
 }
 
 void Partition::partition_edges(std::string filename) {
-	std::vector<long> counts = partition(filename, 33, variable_pid_map);
+	std::vector<long> counts = partition(filename, EDGE_RECORD_SIZE, variable_pid_map);
 	for (int i = 0; i < num_partitions; i++) {
 		metas[i].num_edges = counts[i];
 	}
