@@ -36,6 +36,11 @@ inline bool fast_exact_is_equal(double a, double b){
     return (a <= b && b <= a);
 }
 
+#define VARIABLE_RECORD_SIZE 35
+#define FACTOR_RECORD_SIZE 26
+#define EDGE_RECORD_SIZE 33
+#define WEIGHT_RECORD_SIZE 17
+
 /**
  * Calculates log(exp(log_a) + exp(log_b)) 
  */

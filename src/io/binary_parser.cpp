@@ -2,6 +2,9 @@
 #include <fstream>
 #include <stdint.h>
 #include "binary_parser.h"
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <cstring>
 
 
 // 64-bit big endian to little endian
@@ -18,6 +21,8 @@
 // 16-bit big endian to little endian
 #define bswap_16(x) \
      ((unsigned short int) ((((x) >> 8) & 0xff) | (((x) & 0xff) << 8)))
+
+#define CHANGE_BYTE_ORDER 1
 
 // Read meta data file, return Meta struct 
 Meta read_meta(string meta_file)
@@ -45,29 +50,33 @@ Meta read_meta(string meta_file)
 // Read weights and load into factor graph
 long long read_weights(string filename, dd::FactorGraph &fg)
 {
-	ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     bool isfixed;
     char padding;
     double initial_value;
-    while (file.good()) {
-    	// read fields
-        file.read((char *)&id, 8);
-        file.read((char *)&padding, 1);
-        if (!file.read((char *)&initial_value, 8)) break;
-        // convert endian
-        id = bswap_64(id);
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = fg.n_weight * WEIGHT_RECORD_SIZE;
+    char *map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    int offset = 0;
+    while (offset < size) {
+        memcpy((char *)&id, map+offset, 8);
+        memcpy((char *)&padding, map+offset+8, 1);
+        memcpy((char *)&initial_value, map+offset+9, 8);
+        offset += WEIGHT_RECORD_SIZE;
         isfixed = padding;
-        long long tmp = bswap_64(*(uint64_t *)&initial_value);
-        initial_value = *(double *)&tmp;
+        // convert endian
+        if (CHANGE_BYTE_ORDER) {
+            id = bswap_64(id);
+            long tmp = bswap_64(*(uint64_t *)&initial_value);
+            initial_value = *(double *)&tmp;
+        }
         // load into factor graph
         fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
-		fg.c_nweight++;
-		count++;
+        fg.c_nweight++;
+        count++;
     }
-    file.close();
+    std::cerr << count << std::endl;
     return count;
 }
 
