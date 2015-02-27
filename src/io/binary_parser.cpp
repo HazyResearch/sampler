@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <cstring>
+#include <unistd.h>
 
 
 // 64-bit big endian to little endian
@@ -57,12 +58,13 @@ long long read_weights(string filename, dd::FactorGraph &fg)
     double initial_value;
     int fd = open(filename.c_str(), O_RDONLY);
     long size = fg.n_weight * WEIGHT_RECORD_SIZE;
-    char *map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     int offset = 0;
     while (offset < size) {
-        memcpy((char *)&id, map+offset, 8);
-        memcpy((char *)&padding, map+offset+8, 1);
-        memcpy((char *)&initial_value, map+offset+9, 8);
+        char *start = memory_map + offset; 
+        memcpy((char *)&id, start, 8);
+        memcpy((char *)&padding, start + 8, 1);
+        memcpy((char *)&initial_value, start + 9, 8);
         offset += WEIGHT_RECORD_SIZE;
         isfixed = padding;
         // convert endian
@@ -76,7 +78,8 @@ long long read_weights(string filename, dd::FactorGraph &fg)
         fg.c_nweight++;
         count++;
     }
-    std::cerr << count << std::endl;
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
@@ -84,8 +87,6 @@ long long read_weights(string filename, dd::FactorGraph &fg)
 // Read variables
 long long read_variables(string filename, dd::FactorGraph &fg)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     bool isevidence;
@@ -94,22 +95,30 @@ long long read_variables(string filename, dd::FactorGraph &fg)
     short type;
     long long edge_count;
     long long cardinality;
-    while (file.good()) {
-        // read fields
-        file.read((char *)&id, 8);
-        file.read((char *)&padding1, 1);
-        file.read((char *)&initial_value, 8);
-        file.read((char *)&type, 2);
-        file.read((char *)&edge_count, 8);
-        if (!file.read((char *)&cardinality, 8)) break;
-        // convert endian
-        id = bswap_64(id);
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = fg.n_var * VARIABLE_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    int offset = 0;
+    while (offset < size) {
+        char *start = memory_map + offset;
+        memcpy((char *)&id, start, 8);
+        memcpy((char *)&padding1, start + 8, 1);
+        memcpy((char *)&initial_value, start + 9, 8);
+        memcpy((char *)&type, start + 17, 2);
+        memcpy((char *)&edge_count, start + 19, 8);
+        memcpy((char *)&cardinality, start + 27, 8);
+        offset += VARIABLE_RECORD_SIZE;
+
         isevidence = padding1;
-        type = bswap_16(type);
-        long long tmp = bswap_64(*(uint64_t *)&initial_value);
-        initial_value = *(double *)&tmp;
-        edge_count = bswap_64(edge_count);
-        cardinality = bswap_64(cardinality);
+        if (CHANGE_BYTE_ORDER) {
+            id = bswap_64(id);
+            type = bswap_16(type);
+            std::cout << type << std::endl;
+            long long tmp = bswap_64(*(uint64_t *)&initial_value);
+            initial_value = *(double *)&tmp;
+            edge_count = bswap_64(edge_count);
+            cardinality = bswap_64(cardinality);
+        }
         count++;
 
         // add to factor graph
@@ -137,25 +146,13 @@ long long read_variables(string filename, dd::FactorGraph &fg)
                 fg.c_nvar ++;
                 fg.n_query ++;
             }
-        } else if (type == 3){
-            if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_REAL, true, 0, cardinality, 
-                    initial_value, initial_value, edge_count);
-                fg.c_nvar++;
-                fg.n_evid++;
-            }else{
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_REAL, true, 0, cardinality, 
-                    initial_value, initial_value, edge_count);
-                fg.c_nvar++;
-                fg.n_evid++;
-            }
         }else {
             cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
             exit(1);
         }
-
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
