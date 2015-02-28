@@ -3,6 +3,7 @@
 #include "io/binary_parser.h"
 #include "dstruct/factor_graph/factor_graph.h"
 #include "dstruct/factor_graph/factor.h"
+#include "timer.h"
 
 bool dd::FactorGraph::is_usable(){
   return this->sorted && this->safety_check_passed;
@@ -124,6 +125,10 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   std::string filename_variables = variable_file;
   std::string filename_weights = weight_file;
 
+  Timer t;
+  t.restart();
+  double elapsed = 0;
+
   // load variables
   long long n_loaded = read_variables(filename_variables, *this);
   assert(n_loaded == n_var);
@@ -146,6 +151,7 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   if (!is_quiet) {
     std::cout << "LOADED WEIGHTS: #" << n_loaded << std::endl;
   }
+  elapsed += t.elapsed();
 
   // sort the above components
   // NOTE This is very important, as read_edges assume variables,
@@ -153,10 +159,15 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   // where they are stored in the array
   this->sort_by_id();
 
+  t.restart();
   // load edges
   n_loaded = read_edges(edge_file, *this);
   if (!is_quiet) {
     std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
+  }
+  elapsed += t.elapsed();
+  if (!is_quiet) {
+    std::cout << "LOADING TIME: " << elapsed << std::endl;
   }
 
   // construct edge-based store
