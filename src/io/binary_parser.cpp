@@ -113,13 +113,14 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         if (CHANGE_BYTE_ORDER) {
             id = bswap_64(id);
             type = bswap_16(type);
-            std::cout << type << std::endl;
             long long tmp = bswap_64(*(uint64_t *)&initial_value);
-            initial_value = *(double *)&tmp;
+            initial_value = *(double *)&tmp; 
             edge_count = bswap_64(edge_count);
             cardinality = bswap_64(cardinality);
         }
         count++;
+        // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
+
 
         // add to factor graph
         if (type == 0){ // boolean
@@ -158,28 +159,61 @@ long long read_variables(string filename, dd::FactorGraph &fg)
 
 long long read_factors(string filename, dd::FactorGraph &fg)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     long long weightid;
     short type;
     long long edge_count;
-    while (file.good()) {
-        file.read((char *)&id, 8);
-        file.read((char *)&weightid, 8);
-        file.read((char *)&type, 2);
-        if (!file.read((char *)&edge_count, 8)) break;
-        id = bswap_64(id);
-        weightid = bswap_64(weightid);
-        type = bswap_16(type);
-        edge_count = bswap_64(edge_count);
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = fg.n_factor * FACTOR_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    int offset = 0;
+    while (offset < size) {
+        char *start = memory_map + offset;
+        memcpy((char *)&id, start, 8);
+        memcpy((char *)&weightid, start + 8, 8);
+        memcpy((char *)&type, start + 16, 2);
+        memcpy((char *)&edge_count, start + 18, 8);
+        offset += FACTOR_RECORD_SIZE;
+
+        if (CHANGE_BYTE_ORDER) {
+            id = bswap_64(id);
+            weightid = bswap_64(weightid);
+            type = bswap_16(type);
+            edge_count = bswap_64(edge_count);
+        }
+
         count++;
         fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
-        fg.c_nfactor ++;
+        fg.c_nfactor++;
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
+
+    // ifstream file;
+    // file.open(filename.c_str(), ios::in | ios::binary);
+    // long long count = 0;
+    // long long id;
+    // long long weightid;
+    // short type;
+    // long long edge_count;
+    // while (file.good()) {
+    //     file.read((char *)&id, 8);
+    //     file.read((char *)&weightid, 8);
+    //     file.read((char *)&type, 2);
+    //     if (!file.read((char *)&edge_count, 8)) break;
+    //     id = bswap_64(id);
+    //     weightid = bswap_64(weightid);
+    //     type = bswap_16(type);
+    //     edge_count = bswap_64(edge_count);
+    //     count++;
+    //     fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
+    //     fg.c_nfactor ++;
+    // }
+    // file.close();
+    // return count;
 }
 
 long long read_edges(string filename, dd::FactorGraph &fg)
@@ -193,28 +227,38 @@ long long read_edges(string filename, dd::FactorGraph &fg)
     bool ispositive;
     char padding;
     long long equal_predicate;
-    while (file.good()) {
-        // read fields
-        file.read((char *)&variable_id, 8);
-        file.read((char *)&factor_id, 8);
-        file.read((char *)&position, 8);
-        file.read((char *)&padding, 1);
-        if (!file.read((char *)&equal_predicate, 8)) break;
-        variable_id = bswap_64(variable_id);
-        factor_id = bswap_64(factor_id);
-        position = bswap_64(position);
-        ispositive = padding;
-        equal_predicate = bswap_64(equal_predicate);
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = fg.n_edge * EDGE_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    int offset = 0;
+    while (offset < size) {
+        char *start = memory_map + offset;
+        memcpy((char *)&variable_id, start, 8);
+        memcpy((char *)&factor_id, start + 8, 8);
+        memcpy((char *)&position, start + 16, 8);
+        memcpy((char *)&padding, start + 24, 1);
+        memcpy((char *)&equal_predicate, start + 25, 8);
+        offset += EDGE_RECORD_SIZE;
+
+        if (CHANGE_BYTE_ORDER) {
+            variable_id = bswap_64(variable_id);
+            factor_id = bswap_64(factor_id);
+            position = bswap_64(position);
+            ispositive = padding;
+            equal_predicate = bswap_64(equal_predicate);
+        }
+        
         count++;
 
         // wrong id
-    	if(variable_id >= fg.n_var || variable_id < 0){
-    	  assert(false);
-    	}
+        if(variable_id >= fg.n_var || variable_id < 0){
+          assert(false);
+        }
 
-    	if(factor_id >= fg.n_factor || factor_id < 0){
-    	  std::cout << "wrong fid = " << factor_id << std::endl;
-    	  assert(false);
+        if(factor_id >= fg.n_factor || factor_id < 0){
+          std::cout << "wrong fid = " << factor_id << std::endl;
+          assert(false);
         }
 
         // add variables to factors
@@ -228,7 +272,46 @@ long long read_edges(string filename, dd::FactorGraph &fg)
         fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
 
     }
-    file.close();
-    return count;   
+    munmap(memory_map, size);
+    close(fd);
+    return count;
+
+    // while (file.good()) {
+    //     // read fields
+    //     file.read((char *)&variable_id, 8);
+    //     file.read((char *)&factor_id, 8);
+    //     file.read((char *)&position, 8);
+    //     file.read((char *)&padding, 1);
+    //     if (!file.read((char *)&equal_predicate, 8)) break;
+    //     variable_id = bswap_64(variable_id);
+    //     factor_id = bswap_64(factor_id);
+    //     position = bswap_64(position);
+    //     ispositive = padding;
+    //     equal_predicate = bswap_64(equal_predicate);
+    //     count++;
+
+    //     // wrong id
+    // 	if(variable_id >= fg.n_var || variable_id < 0){
+    // 	  assert(false);
+    // 	}
+
+    // 	if(factor_id >= fg.n_factor || factor_id < 0){
+    // 	  std::cout << "wrong fid = " << factor_id << std::endl;
+    // 	  assert(false);
+    //     }
+
+    //     // add variables to factors
+    //     if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
+    //         fg.factors[factor_id].tmp_variables.push_back(
+    //             dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
+    //     } else {
+    //         fg.factors[factor_id].tmp_variables.push_back(
+    //             dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
+    //     }
+    //     fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
+
+    // }
+    // file.close();
+    // return count;   
 }
 
