@@ -51,6 +51,7 @@ Meta read_meta(string meta_file)
 // Read weights and load into factor graph
 long long read_weights(string filename, dd::FactorGraph &fg)
 {
+    std::cout << "loading weights" << std::endl;
     long long count = 0;
     long long id;
     bool isfixed;
@@ -59,24 +60,25 @@ long long read_weights(string filename, dd::FactorGraph &fg)
     int fd = open(filename.c_str(), O_RDONLY);
     long size = fg.n_weight * WEIGHT_RECORD_SIZE;
     char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    int offset = 0;
-    while (offset < size) {
-        char *start = memory_map + offset; 
-        memcpy((char *)&id, start, 8);
-        memcpy((char *)&padding, start + 8, 1);
-        memcpy((char *)&initial_value, start + 9, 8);
-        offset += WEIGHT_RECORD_SIZE;
-        isfixed = padding;
-        // convert endian
-        if (CHANGE_BYTE_ORDER) {
-            id = bswap_64(id);
-            long tmp = bswap_64(*(uint64_t *)&initial_value);
-            initial_value = *(double *)&tmp;
-        }
-        // load into factor graph
-        fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
-        fg.c_nweight++;
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&padding, ptr + 8, 1);
+        memcpy((char *)&initial_value, ptr + 9, 8);
+        ptr += WEIGHT_RECORD_SIZE;
         count++;
+
+        isfixed = padding;
+        // // convert endian
+        // if (CHANGE_BYTE_ORDER) {
+        //     id = bswap_64(id);
+        //     long tmp = bswap_64(*(uint64_t *)&initial_value);
+        //     initial_value = *(double *)&tmp;
+        // }
+        // // load into factor graph
+        // fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
+        // fg.c_nweight++;
     }
     munmap(memory_map, size);
     close(fd);
@@ -87,6 +89,7 @@ long long read_weights(string filename, dd::FactorGraph &fg)
 // Read variables
 long long read_variables(string filename, dd::FactorGraph &fg)
 {
+    std::cout << "loading variables" << std::endl;
     long long count = 0;
     long long id;
     bool isevidence;
@@ -98,59 +101,59 @@ long long read_variables(string filename, dd::FactorGraph &fg)
     int fd = open(filename.c_str(), O_RDONLY);
     long size = fg.n_var * VARIABLE_RECORD_SIZE;
     char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    int offset = 0;
-    while (offset < size) {
-        char *start = memory_map + offset;
-        memcpy((char *)&id, start, 8);
-        memcpy((char *)&padding1, start + 8, 1);
-        memcpy((char *)&initial_value, start + 9, 8);
-        memcpy((char *)&type, start + 17, 2);
-        memcpy((char *)&edge_count, start + 19, 8);
-        memcpy((char *)&cardinality, start + 27, 8);
-        offset += VARIABLE_RECORD_SIZE;
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&padding1, ptr + 8, 1);
+        memcpy((char *)&initial_value, ptr + 9, 8);
+        memcpy((char *)&type, ptr + 17, 2);
+        memcpy((char *)&edge_count, ptr + 19, 8);
+        memcpy((char *)&cardinality, ptr + 27, 8);
+        ptr += VARIABLE_RECORD_SIZE;
+        count++;
 
         isevidence = padding1;
-        if (CHANGE_BYTE_ORDER) {
-            id = bswap_64(id);
-            type = bswap_16(type);
-            long long tmp = bswap_64(*(uint64_t *)&initial_value);
-            initial_value = *(double *)&tmp; 
-            edge_count = bswap_64(edge_count);
-            cardinality = bswap_64(cardinality);
-        }
-        count++;
-        // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
+        // if (CHANGE_BYTE_ORDER) {
+        //     id = bswap_64(id);
+        //     type = bswap_16(type);
+        //     long long tmp = bswap_64(*(uint64_t *)&initial_value);
+        //     initial_value = *(double *)&tmp; 
+        //     edge_count = bswap_64(edge_count);
+        //     cardinality = bswap_64(cardinality);
+        // }
+        // // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
 
 
-        // add to factor graph
-        if (type == 0){ // boolean
-            if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
-                    initial_value, initial_value, edge_count);
-                fg.c_nvar++;
-                fg.n_evid++;
-            } else {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
-                    0, 0, edge_count);
-                fg.c_nvar++;
-                fg.n_query++;
-            }
-        } else if (type == 1) { // multinomial
-            if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
-                    cardinality-1, initial_value, initial_value, edge_count);
-                fg.c_nvar ++;
-                fg.n_evid ++;
-            } else {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
-                    cardinality-1, 0, 0, edge_count);
-                fg.c_nvar ++;
-                fg.n_query ++;
-            }
-        }else {
-            cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
-            exit(1);
-        }
+        // // add to factor graph
+        // if (type == 0){ // boolean
+        //     if (isevidence) {
+        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
+        //             initial_value, initial_value, edge_count);
+        //         fg.c_nvar++;
+        //         fg.n_evid++;
+        //     } else {
+        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
+        //             0, 0, edge_count);
+        //         fg.c_nvar++;
+        //         fg.n_query++;
+        //     }
+        // } else if (type == 1) { // multinomial
+        //     if (isevidence) {
+        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
+        //             cardinality-1, initial_value, initial_value, edge_count);
+        //         fg.c_nvar ++;
+        //         fg.n_evid ++;
+        //     } else {
+        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
+        //             cardinality-1, 0, 0, edge_count);
+        //         fg.c_nvar ++;
+        //         fg.n_query ++;
+        //     }
+        // }else {
+        //     cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
+        //     exit(1);
+        // }
     }
     munmap(memory_map, size);
     close(fd);
@@ -159,6 +162,7 @@ long long read_variables(string filename, dd::FactorGraph &fg)
 
 long long read_factors(string filename, dd::FactorGraph &fg)
 {
+    std::cout << "loading factors" << std::endl;
     long long count = 0;
     long long id;
     long long weightid;
@@ -168,56 +172,34 @@ long long read_factors(string filename, dd::FactorGraph &fg)
     int fd = open(filename.c_str(), O_RDONLY);
     long size = fg.n_factor * FACTOR_RECORD_SIZE;
     char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    int offset = 0;
-    while (offset < size) {
-        char *start = memory_map + offset;
-        memcpy((char *)&id, start, 8);
-        memcpy((char *)&weightid, start + 8, 8);
-        memcpy((char *)&type, start + 16, 2);
-        memcpy((char *)&edge_count, start + 18, 8);
-        offset += FACTOR_RECORD_SIZE;
-
-        if (CHANGE_BYTE_ORDER) {
-            id = bswap_64(id);
-            weightid = bswap_64(weightid);
-            type = bswap_16(type);
-            edge_count = bswap_64(edge_count);
-        }
-
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&weightid, ptr + 8, 8);
+        memcpy((char *)&type, ptr + 16, 2);
+        memcpy((char *)&edge_count, ptr + 18, 8);
+        ptr += FACTOR_RECORD_SIZE;
         count++;
-        fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
-        fg.c_nfactor++;
+
+        // if (CHANGE_BYTE_ORDER) {
+        //     id = bswap_64(id);
+        //     weightid = bswap_64(weightid);
+        //     type = bswap_16(type);
+        //     edge_count = bswap_64(edge_count);
+        // }
+
+        // fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
+        // fg.c_nfactor++;
     }
     munmap(memory_map, size);
     close(fd);
     return count;
-
-    // ifstream file;
-    // file.open(filename.c_str(), ios::in | ios::binary);
-    // long long count = 0;
-    // long long id;
-    // long long weightid;
-    // short type;
-    // long long edge_count;
-    // while (file.good()) {
-    //     file.read((char *)&id, 8);
-    //     file.read((char *)&weightid, 8);
-    //     file.read((char *)&type, 2);
-    //     if (!file.read((char *)&edge_count, 8)) break;
-    //     id = bswap_64(id);
-    //     weightid = bswap_64(weightid);
-    //     type = bswap_16(type);
-    //     edge_count = bswap_64(edge_count);
-    //     count++;
-    //     fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
-    //     fg.c_nfactor ++;
-    // }
-    // file.close();
-    // return count;
 }
 
 long long read_edges(string filename, dd::FactorGraph &fg)
 {
+    std::cout << "loading edges" << std::endl;
     ifstream file;
     file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
@@ -231,87 +213,49 @@ long long read_edges(string filename, dd::FactorGraph &fg)
     int fd = open(filename.c_str(), O_RDONLY);
     long size = fg.n_edge * EDGE_RECORD_SIZE;
     char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    int offset = 0;
-    while (offset < size) {
-        char *start = memory_map + offset;
-        memcpy((char *)&variable_id, start, 8);
-        memcpy((char *)&factor_id, start + 8, 8);
-        memcpy((char *)&position, start + 16, 8);
-        memcpy((char *)&padding, start + 24, 1);
-        memcpy((char *)&equal_predicate, start + 25, 8);
-        offset += EDGE_RECORD_SIZE;
-
-        if (CHANGE_BYTE_ORDER) {
-            variable_id = bswap_64(variable_id);
-            factor_id = bswap_64(factor_id);
-            position = bswap_64(position);
-            ispositive = padding;
-            equal_predicate = bswap_64(equal_predicate);
-        }
-        
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&variable_id, ptr, 8);
+        memcpy((char *)&factor_id, ptr + 8, 8);
+        memcpy((char *)&position, ptr + 16, 8);
+        memcpy((char *)&padding, ptr + 24, 1);
+        memcpy((char *)&equal_predicate, ptr + 25, 8);
+        ptr += EDGE_RECORD_SIZE;
         count++;
 
-        // wrong id
-        if(variable_id >= fg.n_var || variable_id < 0){
-          assert(false);
-        }
+        // if (CHANGE_BYTE_ORDER) {
+        //     variable_id = bswap_64(variable_id);
+        //     factor_id = bswap_64(factor_id);
+        //     position = bswap_64(position);
+        //     ispositive = padding;
+        //     equal_predicate = bswap_64(equal_predicate);
+        // }
+        
 
-        if(factor_id >= fg.n_factor || factor_id < 0){
-          std::cout << "wrong fid = " << factor_id << std::endl;
-          assert(false);
-        }
+        // // wrong id
+        // if(variable_id >= fg.n_var || variable_id < 0){
+        //   assert(false);
+        // }
 
-        // add variables to factors
-        if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-        } else {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-        }
-        fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
+        // if(factor_id >= fg.n_factor || factor_id < 0){
+        //   std::cout << "wrong fid = " << factor_id << std::endl;
+        //   assert(false);
+        // }
+
+        // // add variables to factors
+        // if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
+        //     fg.factors[factor_id].tmp_variables.push_back(
+        //         dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
+        // } else {
+        //     fg.factors[factor_id].tmp_variables.push_back(
+        //         dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
+        // }
+        // fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
 
     }
     munmap(memory_map, size);
     close(fd);
-    return count;
-
-    // while (file.good()) {
-    //     // read fields
-    //     file.read((char *)&variable_id, 8);
-    //     file.read((char *)&factor_id, 8);
-    //     file.read((char *)&position, 8);
-    //     file.read((char *)&padding, 1);
-    //     if (!file.read((char *)&equal_predicate, 8)) break;
-    //     variable_id = bswap_64(variable_id);
-    //     factor_id = bswap_64(factor_id);
-    //     position = bswap_64(position);
-    //     ispositive = padding;
-    //     equal_predicate = bswap_64(equal_predicate);
-    //     count++;
-
-    //     // wrong id
-    // 	if(variable_id >= fg.n_var || variable_id < 0){
-    // 	  assert(false);
-    // 	}
-
-    // 	if(factor_id >= fg.n_factor || factor_id < 0){
-    // 	  std::cout << "wrong fid = " << factor_id << std::endl;
-    // 	  assert(false);
-    //     }
-
-    //     // add variables to factors
-    //     if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-    //         fg.factors[factor_id].tmp_variables.push_back(
-    //             dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-    //     } else {
-    //         fg.factors[factor_id].tmp_variables.push_back(
-    //             dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-    //     }
-    //     fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
-
-    // }
-    // file.close();
-    // return count;   
+    return count;  
 }
 
