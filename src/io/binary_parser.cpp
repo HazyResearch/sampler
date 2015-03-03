@@ -51,7 +51,7 @@ Meta read_meta(string meta_file)
 // Read weights and load into factor graph
 long long read_weights(string filename, dd::FactorGraph &fg)
 {
-    std::cout << "loading weights" << std::endl;
+    std::cout << "LOADING WEIGHTS..." << std::endl;
     long long count = 0;
     long long id;
     bool isfixed;
@@ -70,15 +70,13 @@ long long read_weights(string filename, dd::FactorGraph &fg)
         count++;
 
         isfixed = padding;
-        // // convert endian
-        // if (CHANGE_BYTE_ORDER) {
-        //     id = bswap_64(id);
-        //     long tmp = bswap_64(*(uint64_t *)&initial_value);
-        //     initial_value = *(double *)&tmp;
-        // }
-        // // load into factor graph
-        // fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
-        // fg.c_nweight++;
+        // convert endian
+        id = bswap_64(id);
+        long tmp = bswap_64(*(uint64_t *)&initial_value);
+        initial_value = *(double *)&tmp;
+        // load into factor graph
+        fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
+        fg.c_nweight++;
     }
     munmap(memory_map, size);
     close(fd);
@@ -89,7 +87,7 @@ long long read_weights(string filename, dd::FactorGraph &fg)
 // Read variables
 long long read_variables(string filename, dd::FactorGraph &fg)
 {
-    std::cout << "loading variables" << std::endl;
+    std::cout << "LOADING VARIABLES..." << std::endl;
     long long count = 0;
     long long id;
     bool isevidence;
@@ -114,46 +112,43 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         count++;
 
         isevidence = padding1;
-        // if (CHANGE_BYTE_ORDER) {
-        //     id = bswap_64(id);
-        //     type = bswap_16(type);
-        //     long long tmp = bswap_64(*(uint64_t *)&initial_value);
-        //     initial_value = *(double *)&tmp; 
-        //     edge_count = bswap_64(edge_count);
-        //     cardinality = bswap_64(cardinality);
-        // }
-        // // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
+        id = bswap_64(id);
+        type = bswap_16(type);
+        long long tmp = bswap_64(*(uint64_t *)&initial_value);
+        initial_value = *(double *)&tmp; 
+        edge_count = bswap_64(edge_count);
+        cardinality = bswap_64(cardinality);
+        // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
 
-
-        // // add to factor graph
-        // if (type == 0){ // boolean
-        //     if (isevidence) {
-        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
-        //             initial_value, initial_value, edge_count);
-        //         fg.c_nvar++;
-        //         fg.n_evid++;
-        //     } else {
-        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
-        //             0, 0, edge_count);
-        //         fg.c_nvar++;
-        //         fg.n_query++;
-        //     }
-        // } else if (type == 1) { // multinomial
-        //     if (isevidence) {
-        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
-        //             cardinality-1, initial_value, initial_value, edge_count);
-        //         fg.c_nvar ++;
-        //         fg.n_evid ++;
-        //     } else {
-        //         fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
-        //             cardinality-1, 0, 0, edge_count);
-        //         fg.c_nvar ++;
-        //         fg.n_query ++;
-        //     }
-        // }else {
-        //     cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
-        //     exit(1);
-        // }
+        // add to factor graph
+        if (type == 0){ // boolean
+            if (isevidence) {
+                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
+                    initial_value, initial_value, edge_count);
+                fg.c_nvar++;
+                fg.n_evid++;
+            } else {
+                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
+                    0, 0, edge_count);
+                fg.c_nvar++;
+                fg.n_query++;
+            }
+        } else if (type == 1) { // multinomial
+            if (isevidence) {
+                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
+                    cardinality-1, initial_value, initial_value, edge_count);
+                fg.c_nvar ++;
+                fg.n_evid ++;
+            } else {
+                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
+                    cardinality-1, 0, 0, edge_count);
+                fg.c_nvar ++;
+                fg.n_query ++;
+            }
+        }else {
+            cout << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
+            exit(1);
+        }
     }
     munmap(memory_map, size);
     close(fd);
@@ -162,7 +157,7 @@ long long read_variables(string filename, dd::FactorGraph &fg)
 
 long long read_factors(string filename, dd::FactorGraph &fg)
 {
-    std::cout << "loading factors" << std::endl;
+    std::cout << "LOADING FACTORS" << std::endl;
     long long count = 0;
     long long id;
     long long weightid;
@@ -182,15 +177,13 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         ptr += FACTOR_RECORD_SIZE;
         count++;
 
-        // if (CHANGE_BYTE_ORDER) {
-        //     id = bswap_64(id);
-        //     weightid = bswap_64(weightid);
-        //     type = bswap_16(type);
-        //     edge_count = bswap_64(edge_count);
-        // }
+        id = bswap_64(id);
+        weightid = bswap_64(weightid);
+        type = bswap_16(type);
+        edge_count = bswap_64(edge_count);
 
-        // fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
-        // fg.c_nfactor++;
+        fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
+        fg.c_nfactor++;
     }
     munmap(memory_map, size);
     close(fd);
@@ -199,7 +192,7 @@ long long read_factors(string filename, dd::FactorGraph &fg)
 
 long long read_edges(string filename, dd::FactorGraph &fg)
 {
-    std::cout << "loading edges" << std::endl;
+    std::cout << "LOADING EDGES..." << std::endl;
     ifstream file;
     file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
@@ -224,34 +217,31 @@ long long read_edges(string filename, dd::FactorGraph &fg)
         ptr += EDGE_RECORD_SIZE;
         count++;
 
-        // if (CHANGE_BYTE_ORDER) {
-        //     variable_id = bswap_64(variable_id);
-        //     factor_id = bswap_64(factor_id);
-        //     position = bswap_64(position);
-        //     ispositive = padding;
-        //     equal_predicate = bswap_64(equal_predicate);
-        // }
-        
+        variable_id = bswap_64(variable_id);
+        factor_id = bswap_64(factor_id);
+        position = bswap_64(position);
+        ispositive = padding;
+        equal_predicate = bswap_64(equal_predicate);
 
-        // // wrong id
-        // if(variable_id >= fg.n_var || variable_id < 0){
-        //   assert(false);
-        // }
+        // wrong id
+        if(variable_id >= fg.n_var || variable_id < 0){
+          assert(false);
+        }
 
-        // if(factor_id >= fg.n_factor || factor_id < 0){
-        //   std::cout << "wrong fid = " << factor_id << std::endl;
-        //   assert(false);
-        // }
+        if(factor_id >= fg.n_factor || factor_id < 0){
+          std::cout << "wrong fid = " << factor_id << std::endl;
+          assert(false);
+        }
 
-        // // add variables to factors
-        // if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-        //     fg.factors[factor_id].tmp_variables.push_back(
-        //         dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-        // } else {
-        //     fg.factors[factor_id].tmp_variables.push_back(
-        //         dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-        // }
-        // fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
+        // add variables to factors
+        if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
+            fg.factors[factor_id].tmp_variables.push_back(
+                dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
+        } else {
+            fg.factors[factor_id].tmp_variables.push_back(
+                dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
+        }
+        fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
 
     }
     munmap(memory_map, size);
