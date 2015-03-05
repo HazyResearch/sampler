@@ -11,9 +11,10 @@ bool dd::FactorGraph::is_usable(){
 
 dd::FactorGraph::FactorGraph(long _n_var, long _n_factor, long _n_weight, long _n_edge) : 
   n_var(_n_var), n_factor(_n_factor), n_weight(_n_weight), n_edge(_n_edge),
-  c_nvar(0), c_nfactor(0), c_nweight(0), n_evid(0), n_query(0),
+  c_nvar(0), c_nfactor(0), c_nweight(0), c_nedge(0), n_evid(0), n_query(0),
   variables(new Variable[_n_var]),
   factors(new Factor[_n_factor]),
+  edges(new Edge[_n_edge]),
   weights(new Weight[_n_weight]),
   compact_factors(new CompactFactor[_n_edge]),
   compact_factors_weightids(new int[_n_edge]),
@@ -37,6 +38,7 @@ void dd::FactorGraph::copy_from(const FactorGraph * const p_other_fg){
   c_nvar = p_other_fg->c_nvar;
   c_nfactor = p_other_fg->c_nfactor;
   c_nweight = p_other_fg->c_nweight;
+  c_nedge = p_other_fg->c_nedge; 
   c_edge = p_other_fg->c_edge;
   sorted = p_other_fg->sorted;
   safety_check_passed = p_other_fg->safety_check_passed;
@@ -157,24 +159,25 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   // NOTE This is very important, as read_edges assume variables,
   // factors and weights are ordered so that their id is the index 
   // where they are stored in the array
-  this->sort_by_id();
+  // this->sort_by_id();
 
-  t.restart();
+  infrs->init(variables, weights);
+  
   // load edges
   n_loaded = read_edges(edge_file, *this);
   if (!is_quiet) {
     std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
   }
-  elapsed += t.elapsed();
-  if (!is_quiet) {
-    std::cout << "LOADING TIME: " << elapsed << std::endl;
-  }
-
+  
   // construct edge-based store
   this->organize_graph_by_edge();
   this->safety_check();
 
-  assert(this->is_usable() == true);
+  // assert(this->is_usable() == true);
+  elapsed = t.elapsed();
+  if (!is_quiet) {
+    std::cout << "LOADING TIME: " << elapsed << std::endl;
+  }
 
 }
 
@@ -203,40 +206,78 @@ bool dd::compare_position(const VariableInFactor& x, const VariableInFactor& y) 
 void dd::FactorGraph::organize_graph_by_edge() {
   // number of edges
   c_edge = 0;
-  // put variables into the edge-based variable array vifs
-  for(long i=0;i<n_factor;i++){
-    Factor & factor = factors[i];
-    factor.n_start_i_vif = c_edge;
-    // sort variables in factor by position in factor
-    std::sort(factor.tmp_variables.begin(), factor.tmp_variables.end(), dd::compare_position);
-    for(const VariableInFactor & vif : factor.tmp_variables){
-      vifs[c_edge] = vif;
-      c_edge ++;
-    }
+  long * const prev_vid = new long[n_edge]; 
+  long * const last_vid = new long[n_var];
+  long * const prev_fid = new long[n_edge]; 
+  long * const last_fid = new long[n_factor];
+
+  for (long i = 0; i < n_var; i++) {
+    last_vid[i] = -1;
   }
 
+  for (long i = 0; i < n_factor; i++) {
+    last_fid[i] = -1;
+  }
+
+  for (long i = 0; i < n_edge; i++) {
+    Edge & edge = edges[i];
+    prev_vid[i] = last_vid[edge.variable_id];
+    last_vid[edge.variable_id] = i;
+    prev_fid[i] = last_fid[edge.factor_id];
+    last_fid[edge.factor_id] = i;
+  }
+
+  for (long i = 0; i < n_factor; i++) {
+    Factor & factor = factors[i];
+    factor.n_start_i_vif = c_edge;
+    long start_idx = c_edge;
+    long cur = last_fid[factor.id];
+    while (cur >= 0) {
+      Edge & edge = edges[cur];
+      if (variables[edge.variable_id].domain_type == DTYPE_BOOLEAN) {
+          vifs[c_edge] = dd::VariableInFactor(edge.variable_id, variables[edge.variable_id].upper_bound, edge.variable_id, edge.position, edge.ispositive);
+      } else {
+          vifs[c_edge] = dd::VariableInFactor(edge.variable_id, edge.position, edge.ispositive, edge.equal_predicate);
+      }
+      c_edge++;
+      cur = prev_fid[cur];
+    }
+    // sort variables in factor by position in factor
+    std::sort(vifs + start_idx, vifs + c_edge, dd::compare_position);
+  }
+  
   c_edge = 0;
   long ntallies = 0;
   // for each variable, put the factors into factor_dups
   for(long i=0;i<n_var;i++){
     Variable & variable = variables[i];
-    variable.n_factors = variable.tmp_factor_ids.size();  // no edge count any more
+    // variable.n_factors = variable.tmp_factor_ids.size();  // no edge count any more
     
     variable.n_start_i_factors = c_edge;
     if(variable.domain_type == DTYPE_MULTINOMIAL){
       variable.n_start_i_tally = ntallies;
       ntallies += variable.upper_bound - variable.lower_bound + 1;
     }
-    for(const long & fid : variable.tmp_factor_ids){
+    long cnt = 0;
+    long cur = last_vid[variable.id];
+    while (cur >= 0) {
+      long long & fid = edges[cur].factor_id;
       factor_ids[c_edge] = fid;
       compact_factors[c_edge].id = factors[fid].id;
       compact_factors[c_edge].func_id = factors[fid].func_id;
       compact_factors[c_edge].n_variables = factors[fid].n_variables;
       compact_factors[c_edge].n_start_i_vif = factors[fid].n_start_i_vif;
       compact_factors_weightids[c_edge] = factors[fid].weight_id;
+      cnt ++;
       c_edge ++;
+      cur = prev_vid[cur];
     }
+    variable.n_factors = cnt;
   }
+  delete[] prev_vid;
+  delete[] last_vid;
+  delete[] prev_fid;
+  delete[] last_fid;
 }
 
 void dd::FactorGraph::safety_check(){

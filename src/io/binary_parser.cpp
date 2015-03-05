@@ -75,7 +75,8 @@ long long read_weights(string filename, dd::FactorGraph &fg)
         long tmp = bswap_64(*(uint64_t *)&initial_value);
         initial_value = *(double *)&tmp;
         // load into factor graph
-        fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
+        // fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
+        fg.weights[id] = dd::Weight(id, initial_value, isfixed);
         fg.c_nweight++;
     }
     munmap(memory_map, size);
@@ -123,25 +124,33 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         // add to factor graph
         if (type == 0){ // boolean
             if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
+                fg.variables[id] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
                     initial_value, initial_value, edge_count);
+                // fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, true, 0, 1, 
+                //     initial_value, initial_value, edge_count);
                 fg.c_nvar++;
                 fg.n_evid++;
             } else {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
+                fg.variables[id] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
                     0, 0, edge_count);
+                // fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_BOOLEAN, false, 0, 1, 
+                //     0, 0, edge_count);
                 fg.c_nvar++;
                 fg.n_query++;
             }
         } else if (type == 1) { // multinomial
             if (isevidence) {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
+                fg.variables[id] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
                     cardinality-1, initial_value, initial_value, edge_count);
+                // fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, true, 0, 
+                //     cardinality-1, initial_value, initial_value, edge_count);
                 fg.c_nvar ++;
                 fg.n_evid ++;
             } else {
-                fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
+                fg.variables[id] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
                     cardinality-1, 0, 0, edge_count);
+                // fg.variables[fg.c_nvar] = dd::Variable(id, DTYPE_MULTINOMIAL, false, 0, 
+                //     cardinality-1, 0, 0, edge_count);
                 fg.c_nvar ++;
                 fg.n_query ++;
             }
@@ -181,8 +190,8 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         weightid = bswap_64(weightid);
         type = bswap_16(type);
         edge_count = bswap_64(edge_count);
-
-        fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
+        fg.factors[id] = dd::Factor(id, weightid, type, edge_count);
+        // fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
         fg.c_nfactor++;
     }
     munmap(memory_map, size);
@@ -233,15 +242,18 @@ long long read_edges(string filename, dd::FactorGraph &fg)
           assert(false);
         }
 
-        // add variables to factors
-        if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-        } else {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-        }
-        fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
+        fg.edges[fg.c_nedge] = dd::Edge(variable_id, factor_id, position, ispositive, equal_predicate);
+        fg.c_nedge++;
+
+        // // add variables to factors
+        // if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
+        //     fg.factors[factor_id].tmp_variables.push_back(
+        //         dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
+        // } else {
+        //     fg.factors[factor_id].tmp_variables.push_back(
+        //         dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
+        // }
+        // fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
 
     }
     munmap(memory_map, size);

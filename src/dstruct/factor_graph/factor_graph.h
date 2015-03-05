@@ -4,6 +4,7 @@
 
 #include "dstruct/factor_graph/variable.h"
 #include "dstruct/factor_graph/factor.h"
+#include "dstruct/factor_graph/edge.h"
 #include "dstruct/factor_graph/weight.h"
 #include "dstruct/factor_graph/inference_result.h"
 
@@ -29,6 +30,7 @@ namespace dd{
     long c_nvar;
     long c_nfactor;
     long c_nweight;
+    long c_nedge;
     long c_edge;
 
     // number of evidence variables, query variables
@@ -41,6 +43,7 @@ namespace dd{
     // variables, factors, weights
     Variable * const variables;
     Factor * const factors;
+    Edge * const edges;
     Weight * const weights;
 
     // For each edge, we store the factor, weight id, factor id, and the variable, 

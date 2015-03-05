@@ -3,7 +3,7 @@
 #define _WEIGHT_H_
 
 namespace dd{
-
+  
   typedef long WeightIndex;
 
   /**

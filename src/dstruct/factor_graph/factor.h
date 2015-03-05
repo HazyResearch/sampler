@@ -146,7 +146,7 @@ namespace dd{
 
     long n_start_i_vif;     // start variable id
 
-    std::vector<VariableInFactor> tmp_variables; // variables in the factor
+    // std::vector<VariableInFactor> tmp_variables; // variables in the factor
 
     Factor();
 
