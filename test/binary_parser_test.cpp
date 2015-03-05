@@ -62,7 +62,4 @@ TEST(BinaryParserTest, read_edges) {
 	dd::FactorGraph fg(18, 18, 1, 18);
 	int nedges = read_edges("./test/coin/graph.edges", fg);
 	EXPECT_EQ(nedges, 18);
-	EXPECT_EQ(fg.factors[1].tmp_variables[0].vid, 1);
-	EXPECT_EQ(fg.factors[1].tmp_variables[0].n_position, 0);
-	EXPECT_EQ(fg.factors[1].tmp_variables[0].is_positive, true);
 }

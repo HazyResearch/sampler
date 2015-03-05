@@ -46,30 +46,14 @@ TEST_F(LoadingTest, load_factor_graph) {
 
 }
 
-// test for FactorGraph::sort_by_id function
-TEST_F(LoadingTest, sort_by_id) {
-	fg.sort_by_id();
-	for (int i = 0; i < fg.c_nvar; i++) {
-		EXPECT_EQ(fg.variables[i].id, i);
-	}
-	for (int i = 0; i < fg.n_factor; i++) {
-		EXPECT_EQ(fg.factors[i].id, i);
-	}
-	for (int i = 0; i < fg.n_weight; i++) {
-		EXPECT_EQ(fg.weights[i].id, i);
-	}
-}
-
 // test for FactorGraph::organize_graph_by_edge function
 TEST_F(LoadingTest, organize_graph_by_edge) {
-	fg.sort_by_id();
 	fg.organize_graph_by_edge();
 	fg.safety_check();
 }
 
 // test for FactorGraph::copy_from function
 TEST_F(LoadingTest, copy_from) {
-	fg.sort_by_id();
 	fg.organize_graph_by_edge();
 
 	dd::FactorGraph fg2(18, 18, 1, 18);

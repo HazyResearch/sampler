@@ -59,13 +59,6 @@ namespace dd{
     // pointer to inference result
     InferenceResult * const infrs ;
 
-    // whether the factor graph loading has been finalized
-    // see sort_by_id() below
-    bool sorted;
-    // whether safety check has passed
-    // see safety_check() below
-    bool safety_check_passed;
-
     /**
      * Constructs a new factor graph with given number number of variables,
      * factors, weights, and edges
@@ -168,13 +161,6 @@ namespace dd{
     void load(const CmdParser & cmd, const bool is_quiet);
 
     /**
-     * Sorts the variables, factors, and weights in ascending id order.
-     * This is important as later these components are stored in array, and
-     * sorting them will faciliate accessing them by id.
-     */
-    void sort_by_id();
-
-    /**
      * Construct the edge-based store of factor graph in compact_factors, etc.
      * Refer to the class member comments for more detail.
      */
@@ -184,12 +170,6 @@ namespace dd{
      * Checks whether the edge-based store is correct
      */
     void safety_check();
-
-    /**
-     * Returns wether the factor graph is usable.
-     * A factor graph is usable when gone through safety_check and sort_by_id()
-     */
-    bool is_usable();
 
   };
 
