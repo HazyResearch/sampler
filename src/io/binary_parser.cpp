@@ -18,8 +18,6 @@
 #define bswap_16(x) \
   ((unsigned short int)((((x) >> 8) & 0xff) | (((x)&0xff) << 8)))
 
-#define CHANGE_BYTE_ORDER 1
-
 // Read meta data file, return Meta struct
 Meta read_meta(string meta_file) {
   ifstream file;
@@ -213,15 +211,8 @@ long long read_edges(string filename, dd::FactorGraph &fg) {
     ispositive = padding;
     equal_predicate = bswap_64(equal_predicate);
 
-    // wrong id
-    if (variable_id >= fg.n_var || variable_id < 0) {
-      assert(false);
-    }
-
-    if (factor_id >= fg.n_factor || factor_id < 0) {
-      std::cout << "wrong fid = " << factor_id << std::endl;
-      assert(false);
-    }
+    assert(variable_id < fg.n_var && variable_id >= 0);
+    assert(factor_id < fg.n_factor && factor_id >= 0);
 
     fg.edges[fg.c_nedge] =
         dd::Edge(variable_id, factor_id, position, ispositive, equal_predicate);
