@@ -36,6 +36,8 @@ inline bool fast_exact_is_equal(double a, double b){
     return (a <= b && b <= a);
 }
 
+// factor graph record sizes
+// http://deepdive.stanford.edu/doc/advanced/factor_graph_schema.html
 #define VARIABLE_RECORD_SIZE 35
 #define FACTOR_RECORD_SIZE 26
 #define EDGE_RECORD_SIZE 33
