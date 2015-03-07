@@ -5,10 +5,6 @@
 #include "dstruct/factor_graph/factor.h"
 #include "timer.h"
 
-bool dd::FactorGraph::is_usable(){
-  return this->sorted && this->safety_check_passed;
-}
-
 dd::FactorGraph::FactorGraph(long _n_var, long _n_factor, long _n_weight, long _n_edge) : 
   n_var(_n_var), n_factor(_n_factor), n_weight(_n_weight), n_edge(_n_edge),
   c_nvar(0), c_nfactor(0), c_nweight(0), c_nedge(0), n_evid(0), n_query(0),
@@ -20,9 +16,7 @@ dd::FactorGraph::FactorGraph(long _n_var, long _n_factor, long _n_weight, long _
   compact_factors_weightids(new int[_n_edge]),
   factor_ids(new long[_n_edge]),
   vifs(new VariableInFactor[_n_edge]),
-  infrs(new InferenceResult(_n_var, _n_weight)),
-  sorted(false),
-  safety_check_passed(false) {}
+  infrs(new InferenceResult(_n_var, _n_weight)) {}
 
 void dd::FactorGraph::copy_from(const FactorGraph * const p_other_fg){
   // copy each member from the given graph
@@ -40,8 +34,6 @@ void dd::FactorGraph::copy_from(const FactorGraph * const p_other_fg){
   c_nweight = p_other_fg->c_nweight;
   c_nedge = p_other_fg->c_nedge; 
   c_edge = p_other_fg->c_edge;
-  sorted = p_other_fg->sorted;
-  safety_check_passed = p_other_fg->safety_check_passed;
 
   infrs->init(variables, weights);
   infrs->ntallies = p_other_fg->infrs->ntallies;
@@ -155,12 +147,6 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   }
   elapsed += t.elapsed();
 
-  // sort the above components
-  // NOTE This is very important, as read_edges assume variables,
-  // factors and weights are ordered so that their id is the index 
-  // where they are stored in the array
-  // this->sort_by_id();
-
   infrs->init(variables, weights);
   
   // load edges
@@ -173,30 +159,11 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   this->organize_graph_by_edge();
   this->safety_check();
 
-  // assert(this->is_usable() == true);
   elapsed = t.elapsed();
   if (!is_quiet) {
     std::cout << "LOADING TIME: " << elapsed << std::endl;
   }
 
-}
-
-// sort according to id
-template <class OBJTOSORT>
-class idsorter : public std::binary_function<OBJTOSORT, OBJTOSORT, bool>{
-public:
-  inline bool operator()(const OBJTOSORT & left, const OBJTOSORT & right){
-    return left.id < right.id;
-  }
-};
-
-void dd::FactorGraph::sort_by_id() {
-  // sort variables, factors, and weights by id
-  std::sort(&variables[0], &variables[n_var], idsorter<Variable>());
-  std::sort(&factors[0], &factors[n_factor], idsorter<Factor>());
-  std::sort(&weights[0], &weights[n_weight], idsorter<Weight>()); 
-  this->sorted = true;
-  infrs->init(variables, weights);
 }
 
 bool dd::compare_position(const VariableInFactor& x, const VariableInFactor& y) {
@@ -299,7 +266,6 @@ void dd::FactorGraph::safety_check(){
   for(long i=0;i<s;i++){
     assert(this->weights[i].id == i);
   }
-  this->safety_check_passed = true;
 }
 
 
