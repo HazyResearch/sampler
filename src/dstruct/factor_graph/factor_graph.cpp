@@ -206,10 +206,17 @@ bool dd::compare_position(const VariableInFactor& x, const VariableInFactor& y) 
 void dd::FactorGraph::organize_graph_by_edge() {
   // number of edges
   c_edge = 0;
-  long * const prev_vid = new long[n_edge]; 
-  long * const last_vid = new long[n_var];
-  long * const prev_fid = new long[n_edge]; 
-  long * const last_fid = new long[n_factor];
+
+  // use compact adjacency list to build factor graph
+  // prev_vid and prev_fid are used to store the nearest previous edge with
+  // the same variable id or factor id in the edge list
+  // last_vid and last_fid are used to store the last edge index in the edge
+  // list, and the index in last_vid or last_fid is corresponding to the
+  // variable id or factor id
+  std::unique_ptr<long[]> prev_vid(new long[n_edge]);
+  std::unique_ptr<long[]> last_vid(new long[n_edge]);
+  std::unique_ptr<long[]> prev_fid(new long[n_edge]);
+  std::unique_ptr<long[]> last_fid(new long[n_edge]);
 
   for (long i = 0; i < n_var; i++) {
     last_vid[i] = -1;
@@ -274,10 +281,6 @@ void dd::FactorGraph::organize_graph_by_edge() {
     }
     variable.n_factors = cnt;
   }
-  delete[] prev_vid;
-  delete[] last_vid;
-  delete[] prev_fid;
-  delete[] last_fid;
 }
 
 void dd::FactorGraph::safety_check(){
