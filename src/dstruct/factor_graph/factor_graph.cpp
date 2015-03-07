@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <memory>
 #include "io/binary_parser.h"
 #include "dstruct/factor_graph/factor_graph.h"
 #include "dstruct/factor_graph/factor.h"
