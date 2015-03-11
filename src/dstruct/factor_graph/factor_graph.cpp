@@ -186,14 +186,17 @@ void dd::FactorGraph::organize_graph_by_edge() {
   std::unique_ptr<long[]> prev_fid(new long[n_edge]);
   std::unique_ptr<long[]> last_fid(new long[n_edge]);
 
+  // initial last_vid, -1 represents null
   for (long i = 0; i < n_var; i++) {
     last_vid[i] = -1;
   }
 
+  // initial last_fid, -1 represents null
   for (long i = 0; i < n_factor; i++) {
     last_fid[i] = -1;
   }
 
+  // build compact adjacency list 
   for (long i = 0; i < n_edge; i++) {
     Edge & edge = edges[i];
     prev_vid[i] = last_vid[edge.variable_id];
@@ -206,6 +209,8 @@ void dd::FactorGraph::organize_graph_by_edge() {
     Factor & factor = factors[i];
     factor.n_start_i_vif = c_edge;
     long start_idx = c_edge;
+    // find all edges corresponding to the factor, cur is index of last one 
+    // in edge compact adjacency list
     long cur = last_fid[factor.id];
     while (cur >= 0) {
       Edge & edge = edges[cur];
@@ -215,6 +220,7 @@ void dd::FactorGraph::organize_graph_by_edge() {
           vifs[c_edge] = dd::VariableInFactor(edge.variable_id, edge.position, edge.ispositive, edge.equal_predicate);
       }
       c_edge++;
+      // use prev_fid to find the previous edge in the list
       cur = prev_fid[cur];
     }
     // sort variables in factor by position in factor
@@ -226,7 +232,6 @@ void dd::FactorGraph::organize_graph_by_edge() {
   // for each variable, put the factors into factor_dups
   for(long i=0;i<n_var;i++){
     Variable & variable = variables[i];
-    // variable.n_factors = variable.tmp_factor_ids.size();  // no edge count any more
     
     variable.n_start_i_factors = c_edge;
     if(variable.domain_type == DTYPE_MULTINOMIAL){
@@ -234,6 +239,8 @@ void dd::FactorGraph::organize_graph_by_edge() {
       ntallies += variable.upper_bound - variable.lower_bound + 1;
     }
     long cnt = 0;
+    // find all edges corresponding to the variable, cur is index of last one
+    // in edge compact adjacency list    
     long cur = last_vid[variable.id];
     while (cur >= 0) {
       long long & fid = edges[cur].factor_id;
@@ -245,6 +252,7 @@ void dd::FactorGraph::organize_graph_by_edge() {
       compact_factors_weightids[c_edge] = factors[fid].weight_id;
       cnt ++;
       c_edge ++;
+      // use prev_fid to find the previous edge in the list
       cur = prev_vid[cur];
     }
     variable.n_factors = cnt;
