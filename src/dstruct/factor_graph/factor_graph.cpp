@@ -107,7 +107,7 @@ void dd::FactorGraph::update_weight(const Variable & variable){
   }
 }
 
-void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
+void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet, Mapping *mapping){
 
   // get factor graph file names from command line arguments
   std::string weight_file = cmd.weight_file->getValue();
@@ -125,7 +125,12 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   double elapsed = 0;
 
   // load variables
-  long long n_loaded = read_variables(filename_variables, *this);
+  long long n_loaded;
+  if (mapping) {
+    n_loaded = read_variables(filename_variables, *this, &(mapping->vid_map), &(mapping->vid_reverse_map));
+  } else {
+    n_loaded = read_variables(filename_variables, *this);
+  }
   assert(n_loaded == n_var);
   if (!is_quiet) {
     std::cout << "LOADED VARIABLES: #" << n_loaded << std::endl;
@@ -134,13 +139,18 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   }
 
   // load factors
-  n_loaded = read_factors(filename_factors, *this);
+  if (mapping) {
+    n_loaded = read_factors(filename_factors, *this, &(mapping->fid_map));
+  } else {
+    n_loaded = read_factors(filename_factors, *this);
+  }
   assert(n_loaded == n_factor);
   if (!is_quiet) {
     std::cout << "LOADED FACTORS: #" << n_loaded << std::endl;
   }
 
   // load weights
+  // n_loaded = read_weights(filename_weights, *this, &(mapping->wid_map), &(mapping->wid_reverse_map));
   n_loaded = read_weights(filename_weights, *this);
   assert(n_loaded == n_weight);
   if (!is_quiet) {
@@ -151,7 +161,11 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet){
   infrs->init(variables, weights);
   
   // load edges
-  n_loaded = read_edges(edge_file, *this);
+  if (mapping) {
+    n_loaded = read_edges(edge_file, *this, &(mapping->vid_map), &(mapping->fid_map));
+  } else {
+    n_loaded = read_edges(edge_file, *this);
+  }
   if (!is_quiet) {
     std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
   }

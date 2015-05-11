@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include "io/cmd_parser.h"
+#include "io/mapping.h"
 #include "dstruct/factor_graph/factor_graph.h"
 
 #ifndef _GIBBS_SAMPLING_H_
@@ -66,7 +67,7 @@ namespace dd{
      * Dumps the inference result for variables
      * is_quiet whether to compress information display
      */
-    void aggregate_results_and_dump(const bool is_quiet);
+    void aggregate_results_and_dump(const bool is_quiet, std::unordered_map<long, long> *vid_reverse_map = NULL);
 
     /**
      * Dumps the learned weights

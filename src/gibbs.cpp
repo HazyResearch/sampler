@@ -99,9 +99,12 @@ void gibbs(dd::CmdParser & cmd_parser){
   numa_run_on_node(0);
   numa_set_localalloc();
 
+  Mapping mapping;
   // load factor graph
   dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
-  fg.load(cmd_parser, is_quiet);
+  std::cout << "################################################" << std::endl;
+  fg.load(cmd_parser, is_quiet, &mapping);
+  std::cout << "################################################" << std::endl;
   dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy);
 
   // number of learning epochs
@@ -123,6 +126,6 @@ void gibbs(dd::CmdParser & cmd_parser){
 
   // inference
   gibbs.inference(numa_aware_n_epoch, is_quiet);
-  gibbs.aggregate_results_and_dump(is_quiet);
+  gibbs.aggregate_results_and_dump(is_quiet, &mapping.vid_reverse_map);
 
 }

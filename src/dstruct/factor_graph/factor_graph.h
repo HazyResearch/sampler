@@ -1,5 +1,6 @@
 
 #include "io/cmd_parser.h"
+#include "io/mapping.h"
 #include "common.h"
 
 #include "dstruct/factor_graph/variable.h"
@@ -158,7 +159,7 @@ namespace dd{
     /**
      * Loads the factor graph using arguments specified from command line
      */
-    void load(const CmdParser & cmd, const bool is_quiet);
+    void load(const CmdParser & cmd, const bool is_quiet, Mapping *mapping = NULL);
 
     /**
      * Construct the edge-based store of factor graph in compact_factors, etc.

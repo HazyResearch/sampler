@@ -41,7 +41,8 @@ Meta read_meta(string meta_file) {
 }
 
 // Read weights and load into factor graph
-long long read_weights(string filename, dd::FactorGraph &fg) {
+long long read_weights(string filename, dd::FactorGraph &fg,
+  std::unordered_map<long, long> *wid_map, std::unordered_map<long, long> *wid_reverse_map) {
   std::cout << "LOADING WEIGHTS..." << std::endl;
   long long count = 0;
   long long id;
@@ -58,11 +59,16 @@ long long read_weights(string filename, dd::FactorGraph &fg) {
     memcpy((char *)&padding, ptr + 8, 1);
     memcpy((char *)&initial_value, ptr + 9, 8);
     ptr += WEIGHT_RECORD_SIZE;
-    count++;
-
+    
     isfixed = padding;
     // convert endian
     id = bswap_64(id);
+    if (wid_map) {
+      get_or_insert(wid_reverse_map, count, id);
+      id = get_or_insert(wid_map, id, count);
+    }
+    count++;
+
     long tmp = bswap_64(*(uint64_t *)&initial_value);
     initial_value = *(double *)&tmp;
     // load into factor graph
@@ -71,11 +77,18 @@ long long read_weights(string filename, dd::FactorGraph &fg) {
   }
   munmap(memory_map, size);
   close(fd);
+
+  // /////////////////////////
+  // std::cout << "WEIGHTS MAPPING" << std::endl;
+  // for (int i = 0; i < count; i++)
+  //   std::cout << i << "\t" << get_or_insert(wid_map, i, -1) << "\t" << get_or_insert(wid_reverse_map, get_or_insert(wid_map, i, -1), -1) << std::endl;
+
   return count;
 }
 
 // Read variables
-long long read_variables(string filename, dd::FactorGraph &fg) {
+long long read_variables(string filename, dd::FactorGraph &fg,
+  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *vid_reverse_map) {
   std::cout << "LOADING VARIABLES..." << std::endl;
   long long count = 0;
   long long id;
@@ -103,18 +116,27 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
     memcpy((char *)&edge_count, ptr + 19, 8);
     memcpy((char *)&cardinality, ptr + 27, 8);
     ptr += VARIABLE_RECORD_SIZE;
-    count++;
+    
+    printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
 
     isevidence = padding1;
+    printf("haahahahah");
+    
     id = bswap_64(id);
+    printf("haahahahah");
+    if (vid_map) {
+      printf("haahahahah");
+      get_or_insert(vid_reverse_map, count, id);
+      id = get_or_insert(vid_map, id, count);
+    }
+    count++;
+
     type = bswap_16(type);
     long long tmp = bswap_64(*(uint64_t *)&initial_value);
     initial_value = *(double *)&tmp;
     edge_count = bswap_64(edge_count);
     cardinality = bswap_64(cardinality);
-    // printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli
-    // cardinality=%lli\n", id, isevidence, initial_value, type, edge_count,
-    // cardinality);
+    printf("----- id=%lli isevidence=%d initial=%f type=%d edge_count=%lli cardinality=%lli\n", id, isevidence, initial_value, type, edge_count, cardinality);
 
     if (type == 0) {
       data_type = DTYPE_BOOLEAN;
@@ -143,10 +165,21 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
   }
   munmap(memory_map, size);
   close(fd);
+
+  if (vid_map) {
+    /////////////////////////
+    std::cout << "VARIABLES MAPPING" << std::endl;
+    std:: cout << count << std::endl;
+    for (int i = 0; i < count; i++)
+      std::cout << get_or_insert(vid_map, i, -1) << std::endl;
+    for (int i = 0; i < count; i++)
+      std::cout << i << "\t" << get_or_insert(vid_map, i, -1) << "\t" << get_or_insert(vid_reverse_map, get_or_insert(vid_map, i, -1), -1) << std::endl;
+  }
   return count;
 }
 
-long long read_factors(string filename, dd::FactorGraph &fg) {
+long long read_factors(string filename, dd::FactorGraph &fg,
+  std::unordered_map<long, long> *fid_map) {
   std::cout << "LOADING FACTORS" << std::endl;
   long long count = 0;
   long long id;
@@ -165,9 +198,13 @@ long long read_factors(string filename, dd::FactorGraph &fg) {
     memcpy((char *)&type, ptr + 16, 2);
     memcpy((char *)&edge_count, ptr + 18, 8);
     ptr += FACTOR_RECORD_SIZE;
-    count++;
 
     id = bswap_64(id);
+    if (fid_map) {
+        id = get_or_insert(fid_map, id, count);
+    }
+    count++;
+
     weightid = bswap_64(weightid);
     type = bswap_16(type);
     edge_count = bswap_64(edge_count);
@@ -176,10 +213,19 @@ long long read_factors(string filename, dd::FactorGraph &fg) {
   }
   munmap(memory_map, size);
   close(fd);
+
+  if (fid_map) {
+    /////////////////////////
+    std::cout << "FACTORS MAPPING" << std::endl;
+    for (int i = 0; i < count; i++)
+      std::cout << i << "\t" << get_or_insert(fid_map, i, -1) << std::endl;
+  }
+
   return count;
 }
 
-long long read_edges(string filename, dd::FactorGraph &fg) {
+long long read_edges(string filename, dd::FactorGraph &fg,
+  std::unordered_map<long, long> *vid_map, std::unordered_map<long, long> *fid_map) {
   std::cout << "LOADING EDGES..." << std::endl;
   ifstream file;
   file.open(filename.c_str(), ios::in | ios::binary);
@@ -207,10 +253,16 @@ long long read_edges(string filename, dd::FactorGraph &fg) {
 
     variable_id = bswap_64(variable_id);
     factor_id = bswap_64(factor_id);
+
+    std::cout << variable_id << "\t" << factor_id << std::endl;
+    if (vid_map) {
+      variable_id = get_or_insert(vid_map, variable_id, -1);
+      factor_id = get_or_insert(fid_map, factor_id, -1);
+    }
+    std::cout << variable_id << "\t" << factor_id << std::endl;
     position = bswap_64(position);
     ispositive = padding;
     equal_predicate = bswap_64(equal_predicate);
-
     assert(variable_id < fg.n_var && variable_id >= 0);
     assert(factor_id < fg.n_factor && factor_id >= 0);
 

@@ -224,7 +224,7 @@ void dd::GibbsSampling::dump_weights(const bool is_quiet){
   fout_text.close();
 }
 
-void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
+void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, std::unordered_map<long, long> *vid_reverse_map){
 
   // sum of variable assignments
   std::unique_ptr<double[]> agg_means(new double[factorgraphs[0].n_var]);
@@ -255,7 +255,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
   }
 
   // inference snippets
-  if (!is_quiet) {
+  if (!is_quiet && vid_reverse_map == NULL) {
     std::cout << "INFERENCE SNIPPETS (QUERY VARIABLES):" << std::endl;
     int ct = 0;
     for(long i=0;i<factorgraphs[0].n_var;i++){
@@ -290,17 +290,27 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
     "/inference_result.out.text";
   std::cout << "DUMPING... TEXT    : " << filename_text << std::endl;
   std::ofstream fout_text(filename_text.c_str());
+  // if (vid_reverse_map == NULL) {
+  //   fout_text.open(filename_text.c_str());
+  // } else {
+  //   fout_text.open(filename_text.c_str());
+  //   // fout_text.open(filename_text.c_str(), std::ios::app);
+  // }
   for(long i=0;i<factorgraphs[0].n_var;i++){
     const Variable & variable = factorgraphs[0].variables[i];
     if(variable.is_evid == true){
       continue;
     }
-    
+    long vid = variable.id;
+    if (vid_reverse_map != NULL) {
+      vid = (*vid_reverse_map)[vid];
+    }
+    std::cout << vid << "\t!!\t" << variable.id << std::endl; 
     if(variable.domain_type != DTYPE_BOOLEAN){
       if(variable.domain_type == DTYPE_MULTINOMIAL){
         for(int j=0;j<=variable.upper_bound;j++){
           
-          fout_text << variable.id << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id]) << std::endl;
+          fout_text << vid << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id]) << std::endl;
 
         }
       }else{
@@ -308,13 +318,14 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet){
         assert(false);
       }
     }else{
-      fout_text << variable.id << " " << 1 << " " << (agg_means[variable.id]/agg_nsamples[variable.id]) << std::endl;
+      std::cout << vid << " " << 1 << " " << (agg_means[variable.id]/agg_nsamples[variable.id]) << std::endl;
+      fout_text << vid << " " << 1 << " " << (agg_means[variable.id]/agg_nsamples[variable.id]) << std::endl;
 
     }
   }
   fout_text.close();
 
-  if (!is_quiet) {
+  if (!is_quiet || vid_reverse_map != NULL) {
     // show a histogram of inference results
     std::cout << "INFERENCE CALIBRATION (QUERY BINS):" << std::endl;
     std::vector<int> abc;
