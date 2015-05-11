@@ -1,5 +1,6 @@
 
 #include "gibbs.h"
+#include "app/bp/belief_propagation.h"
 
 /*
  * Parse input arguments
@@ -7,7 +8,7 @@
 dd::CmdParser parse_input(int argc, char** argv){
 
   std::vector<std::string> new_args;
-  if (argc < 2 || strcmp(argv[1], "gibbs") != 0) {
+  if (argc < 2) {
     new_args.push_back(std::string(argv[0]) + " " + "gibbs");
     new_args.push_back("-h");
   } else {
@@ -23,12 +24,14 @@ dd::CmdParser parse_input(int argc, char** argv){
     new_argv[i][new_args[i].length()] = '\0';
   }
   dd::CmdParser cmd_parser("gibbs");
+  if (argc >= 2) {
+    cmd_parser.app_name = argv[1];
+  }
   cmd_parser.parse(new_args.size(), new_argv);
   return cmd_parser;
 }
 
-void gibbs(dd::CmdParser & cmd_parser){
-
+void print_info(dd::CmdParser &cmd_parser) {
   // number of NUMA nodes
   int n_numa_node = numa_max_node() + 1;
   // number of max threads per NUMA node
@@ -54,7 +57,6 @@ void gibbs(dd::CmdParser & cmd_parser){
   if (stepsize == 0.01) stepsize = stepsize2;
   double decay = cmd_parser.decay->getValue();
 
-  int n_datacopy = cmd_parser.n_datacopy->getValue();
   double reg_param = cmd_parser.reg_param->getValue();
   bool is_quiet = cmd_parser.quiet->getValue();
 
@@ -94,6 +96,32 @@ void gibbs(dd::CmdParser & cmd_parser){
     std::cout << "# nedge              : " << meta.num_edges << std::endl;
     std::cout << "################################################" << std::endl;
   }
+}
+
+void gibbs(dd::CmdParser & cmd_parser){
+
+  print_info(cmd_parser);
+
+  // number of NUMA nodes
+  int n_numa_node = numa_max_node() + 1;
+
+  // get command line arguments
+  int n_learning_epoch = cmd_parser.n_learning_epoch->getValue();
+  int n_samples_per_learning_epoch = cmd_parser.n_samples_per_learning_epoch->getValue();
+  int n_inference_epoch = cmd_parser.n_inference_epoch->getValue();
+
+  double stepsize = cmd_parser.stepsize->getValue();
+  double stepsize2 = cmd_parser.stepsize2->getValue();
+  // hack to support two parameters to specify step size
+  if (stepsize == 0.01) stepsize = stepsize2;
+  double decay = cmd_parser.decay->getValue();
+
+  int n_datacopy = cmd_parser.n_datacopy->getValue();
+  double reg_param = cmd_parser.reg_param->getValue();
+  bool is_quiet = cmd_parser.quiet->getValue();
+  std::string fg_file = cmd_parser.fg_file->getValue();
+
+  Meta meta = read_meta(fg_file); 
 
   // run on NUMA node 0
   numa_run_on_node(0);
@@ -125,4 +153,47 @@ void gibbs(dd::CmdParser & cmd_parser){
   gibbs.inference(numa_aware_n_epoch, is_quiet);
   gibbs.aggregate_results_and_dump(is_quiet);
 
+}
+
+void bp(dd::CmdParser &cmd_parser) {
+  print_info(cmd_parser);
+
+  int n_numa_node = numa_max_node() + 1;
+  // number of max threads per NUMA node
+  int n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF))/(n_numa_node);
+
+  // get command line arguments
+  int n_learning_epoch = cmd_parser.n_learning_epoch->getValue();
+  int n_inference_epoch = cmd_parser.n_inference_epoch->getValue();
+
+  double stepsize = cmd_parser.stepsize->getValue();
+  double stepsize2 = cmd_parser.stepsize2->getValue();
+  // hack to support two parameters to specify step size
+  if (stepsize == 0.01) stepsize = stepsize2;
+  double decay = cmd_parser.decay->getValue();
+  double reg_param = cmd_parser.reg_param->getValue();
+
+  // double reg_param = cmd_parser.reg_param->getValue();
+  bool is_quiet = cmd_parser.quiet->getValue();
+  std::string fg_file = cmd_parser.fg_file->getValue();
+
+  Meta meta = read_meta(fg_file);
+
+  // run on NUMA node 0
+  numa_run_on_node(0);
+  numa_set_localalloc();
+
+  // load factor graph
+  dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
+  fg.load(cmd_parser, is_quiet);
+  BeliefPropagation bp(&fg, &cmd_parser, 1);
+
+  // learning
+  dd::GibbsSampling gibbs(&fg, &cmd_parser, 1);
+  gibbs.learn(n_learning_epoch, 1, stepsize, decay, reg_param, false);
+  gibbs.dump_weights(is_quiet);
+
+  // inference
+  bp.inference(n_inference_epoch);
+  bp.dump_inference_result();
 }

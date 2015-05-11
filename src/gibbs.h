@@ -20,9 +20,4 @@ dd::CmdParser parse_input(int argc, char** argv);
  */
 void gibbs(dd::CmdParser & cmd_parser);
 
-
-
-
-
-
-
+void bp(dd::CmdParser &cmd_parser);

@@ -40,6 +40,10 @@ namespace dd{
 
     std::vector<long> tmp_factor_ids; // factor ids the variable connects to
 
+    // messages received
+    double *messages0;
+    double *messages1;
+
     Variable();
 
     /**
@@ -50,6 +54,8 @@ namespace dd{
              const bool & _is_evid, const VariableValue & _lower_bound,
              const VariableValue & _upper_bound, const VariableValue & _init_value, 
              const VariableValue & _current_value, const int & _n_factors);
+
+    void init_messages();
   };
 
   /**

@@ -169,6 +169,7 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         type = bswap_16(type);
         edge_count = bswap_64(edge_count);
         count++;
+        // printf("id=%lli weightid=%lli type=%d edge_count=%lli\n", id, weightid, type, edge_count);
         fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
         fg.c_nfactor ++;
     }

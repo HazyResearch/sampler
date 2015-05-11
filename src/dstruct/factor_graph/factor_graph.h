@@ -54,7 +54,13 @@ namespace dd{
     VariableInFactor * const vifs;
 
     // pointer to inference result
-    InferenceResult * const infrs ;
+    InferenceResult * const infrs;
+
+    // messages (for bp)
+    // vtof is stored in the same order as vifs in factor graph
+    // ftov is stored in the same order as compact factors
+    double **meesages_vtof;
+    double **messages_ftov;
 
     // whether the factor graph loading has been finalized
     // see sort_by_id() below

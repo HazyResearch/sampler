@@ -8,6 +8,7 @@
 #ifndef _FACTOR_H_
 #define _FACTOR_H_
 
+
 namespace dd{
 
   // enumeration for factor function types
@@ -22,6 +23,75 @@ namespace dd{
     FUNC_SQLSELECT  = 10,
     FUNC_ContLR     = 20
   };
+
+
+  /**
+   * Returns the potential of continousLR factor function. See factor.hxx for more detail
+   */
+  inline double _potential_continuousLR(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of or factor function. See factor.hxx for more detail
+   */
+  inline double _potential_or(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of and factor function. See factor.hxx for more detail
+   */
+  inline double _potential_and(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of equal factor function. See factor.hxx for more detail
+   */
+  inline double _potential_equal(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of MLN style imply factor function. See factor.hxx for more detail
+   */
+  inline double _potential_imply_mln(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of imply factor function. See factor.hxx for more detail
+   */
+  inline double _potential_imply(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  /**
+   * Returns the potential of multinomial factor function. See factor.hxx for more detail
+   */
+  inline double _potential_multinomial(const VariableInFactor * const vifs,
+                                 const VariableValue * const var_values, 
+                                 const VariableIndex &, 
+                                 const VariableValue &,         
+                                 const long n_start_i_vif,
+                                 const long n_variables);
+
+  inline bool is_variable_satisfied(const VariableInFactor& vif, const VariableIndex& vid, 
+      const VariableValue * const var_values, const VariableValue & proposal);
+
 
   /**
    * Encapsulates a factor function in the factor graph
@@ -44,55 +114,6 @@ namespace dd{
      */
     CompactFactor(const FactorIndex & _id);
 
-    /**
-     * Returns the potential of continousLR factor function. See factor.hxx for more detail
-     */
-    inline double _potential_continuousLR(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
-    /**
-     * Returns the potential of or factor function. See factor.hxx for more detail
-     */
-    inline double _potential_or(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
-    /**
-     * Returns the potential of and factor function. See factor.hxx for more detail
-     */
-    inline double _potential_and(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
-    /**
-     * Returns the potential of equal factor function. See factor.hxx for more detail
-     */
-    inline double _potential_equal(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
-    /**
-     * Returns the potential of MLN style imply factor function. See factor.hxx for more detail
-     */
-    inline double _potential_imply_mln(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
-    /**
-     * Returns the potential of imply factor function. See factor.hxx for more detail
-     */
-    inline double _potential_imply(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-    
-    /**
-     * Returns the potential of multinomial factor function. See factor.hxx for more detail
-     */
-    inline double _potential_multinomial(const VariableInFactor * const vifs,
-                                   const VariableValue * const var_values, 
-                                   const VariableIndex &, const VariableValue &) const;
-
     /** 
      * Returns potential of the factor. 
      * (potential is the value of the factor) 
@@ -111,13 +132,13 @@ namespace dd{
       const VariableValue * const var_values,
       const VariableIndex & vid, const VariableValue & proposal) const{
       switch (func_id) {
-        case FUNC_IMPLY_MLN   :return _potential_imply_mln(vifs, var_values, vid, proposal);
-        case FUNC_IMPLY_neg1_1: return _potential_imply(vifs, var_values, vid, proposal);
-        case FUNC_ISTRUE      : return _potential_and(vifs, var_values, vid, proposal);
-        case FUNC_OR          : return _potential_or(vifs, var_values, vid, proposal);
-        case FUNC_AND         : return _potential_and(vifs, var_values, vid, proposal);   
-        case FUNC_EQUAL       : return _potential_equal(vifs, var_values, vid, proposal);  
-        case FUNC_MULTINOMIAL : return _potential_multinomial(vifs, var_values, vid, proposal);
+        case FUNC_IMPLY_MLN   :return _potential_imply_mln(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_IMPLY_neg1_1: return _potential_imply(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_ISTRUE      : return _potential_and(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_OR          : return _potential_or(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_AND         : return _potential_and(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_EQUAL       : return _potential_equal(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_MULTINOMIAL : return _potential_multinomial(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
         case FUNC_SQLSELECT   : std::cout << "SQLSELECT Not supported yet!" << std::endl; assert(false); return 0;  
         case FUNC_ContLR   : std::cout << "ContinuousLR Not supported yet!" << std::endl; assert(false); return 0;  
         std::cout << "Unsupported Factor Function ID= " << func_id << std::endl;
@@ -126,11 +147,6 @@ namespace dd{
 
       return 0.0;
     }
-
-
-  private:
-    inline bool is_variable_satisfied(const VariableInFactor& vif, const VariableIndex& vid, 
-      const VariableValue * const var_values, const VariableValue & proposal) const;
 
   };
 
@@ -148,6 +164,10 @@ namespace dd{
 
     std::vector<VariableInFactor> tmp_variables; // variables in the factor
 
+    // bp messages
+    double *messages0;
+    double *messages1;
+
     Factor();
 
     /**
@@ -157,6 +177,28 @@ namespace dd{
            const WeightIndex & _weight_id,
            const int & _func_id,
            const int & _n_variables);
+
+    void init_messages();
+
+    inline double potential(const VariableInFactor * const vifs,
+      const VariableValue * const var_values,
+      const VariableIndex & vid, const VariableValue & proposal) const{
+      switch (func_id) {
+        case FUNC_IMPLY_MLN   :return _potential_imply_mln(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_IMPLY_neg1_1: return _potential_imply(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_ISTRUE      : return _potential_and(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_OR          : return _potential_or(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_AND         : return _potential_and(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_EQUAL       : return _potential_equal(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_MULTINOMIAL : return _potential_multinomial(vifs, var_values, vid, proposal, n_start_i_vif, n_variables);
+        case FUNC_SQLSELECT   : std::cout << "SQLSELECT Not supported yet!" << std::endl; assert(false); return 0;  
+        case FUNC_ContLR   : std::cout << "ContinuousLR Not supported yet!" << std::endl; assert(false); return 0;  
+        std::cout << "Unsupported Factor Function ID= " << func_id << std::endl;
+        assert(false);
+      }
+
+      return 0.0;
+    }
 
   };
 

@@ -25,9 +25,11 @@ endif
 COMPILE_CMD = $(CXX) $(OPT_FLAG) $(GCC_INCLUDE) $(GCC_LIB) $(CPP_FLAG)
 
 dw: factor_graph.o inference_result.o gibbs_sampling.o main.o binary_parser.o single_thread_sampler.o \
-	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o
+	timer.o gibbs.o single_node_sampler.o belief_propagation.o single_thread_bp.o \
+	factor.o variable.o weight.o cmd_parser.o
 	$(COMPILE_CMD) -o dw gibbs_sampling.o main.o binary_parser.o \
 					    timer.o gibbs.o single_node_sampler.o \
+					    belief_propagation.o single_thread_bp.o \
 						factor_graph.o inference_result.o single_thread_sampler.o factor.o \
 						variable.o weight.o cmd_parser.o \
 	$(CPP_FLAG) 
@@ -68,18 +70,25 @@ single_thread_sampler.o: src/app/gibbs/single_thread_sampler.cpp
 single_node_sampler.o: src/app/gibbs/single_node_sampler.cpp
 	$(COMPILE_CMD) -c src/app/gibbs/single_node_sampler.cpp
 
+belief_propagation.o: src/app/bp/belief_propagation.cpp
+	$(COMPILE_CMD) -c src/app/bp/belief_propagation.cpp
+
+single_thread_bp.o: src/app/bp/single_thread_bp.cpp
+	$(COMPILE_CMD) -c src/app/bp/single_thread_bp.cpp
+
 timer.o : src/timer.cpp 
 	$(COMPILE_CMD) -o timer.o -c src/timer.cpp 
 
 dw_test: factor_graph.o inference_result.o gibbs_sampling.o  binary_parser.o single_thread_sampler.o \
-	timer.o gibbs.o single_node_sampler.o factor.o variable.o weight.o cmd_parser.o
+	timer.o gibbs.o single_node_sampler.o belief_propagation.o single_thread_bp.o \
+	factor.o variable.o weight.o cmd_parser.o
 	
 	$(COMPILE_CMD) -I./lib/gtest-1.7.0/include/ -L./lib/gtest/ \
 	-o dw_test test/test.cpp test/FactorTest.cpp test/LogisticRegressionTest.cpp \
 	test/binary_parser_test.cpp test/loading_test.cpp test/factor_graph_test.cpp \
 	test/sampler_test.cpp test/multinomial.cpp test/partial_observation_test.cpp \
 	gibbs_sampling.o binary_parser.o \
-    timer.o gibbs.o single_node_sampler.o \
+    timer.o gibbs.o single_node_sampler.o belief_propagation.o single_thread_bp.o \
 	factor_graph.o inference_result.o single_thread_sampler.o factor.o \
 	variable.o weight.o cmd_parser.o \
 	$(CPP_FLAG) -lgtest

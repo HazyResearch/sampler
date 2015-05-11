@@ -7,7 +7,7 @@ namespace dd{
 
       app_name = _app_name;
 
-      if(app_name == "gibbs"){
+      if(app_name == "gibbs" || app_name == "bp"){
         cmd = new TCLAP::CmdLine("DimmWitted GIBBS", ' ', "0.01");
 
         fg_file = new TCLAP::ValueArg<std::string>("m","fg_meta","factor graph metadata file",true,"","string"); 

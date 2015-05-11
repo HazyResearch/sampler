@@ -9,13 +9,8 @@ int main(int argv, char** argc){
   // run gibbs sampler
   if(cmd_parser.app_name == "gibbs"){
     gibbs(cmd_parser);
+  } else if (cmd_parser.app_name == "bp") {
+    bp(cmd_parser);
   }
 
 }
-
-
-
-
-
-
-
