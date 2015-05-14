@@ -186,7 +186,7 @@ void bp(dd::CmdParser &cmd_parser) {
   // load factor graph
   dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
   fg.load(cmd_parser, is_quiet);
-  BeliefPropagation bp(&fg, &cmd_parser, 1);
+  BeliefPropagation bp(&fg, &cmd_parser, n_thread_per_numa);
 
   // learning
   dd::GibbsSampling gibbs(&fg, &cmd_parser, 1);
