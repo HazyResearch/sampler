@@ -1,5 +1,6 @@
 
 #include "factor.h"
+#include <cstddef>
 
 namespace dd{
 
