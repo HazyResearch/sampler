@@ -42,7 +42,7 @@ void SingleThreadBP::normalize(double messages[]) {
 }
 
 void SingleThreadBP::send_message_vtof(long vid, long fid) {
-  if (DEBUG && true) printf("\nsend_message_vtof %ld -> %ld\n", vid, fid);
+  if (DEBUG && vid == 0) printf("\nsend_message_vtof %ld -> %ld\n", vid, fid);
   Variable &variable = fg->variables[vid];
   Factor &factor     = fg->factors[fid]; 
   // collect messages from other factors
@@ -66,14 +66,14 @@ void SingleThreadBP::send_message_vtof(long vid, long fid) {
     }
   }
 
-  if (DEBUG && true) printf("message0 = %f, message1 = %f\n", messages[0], messages[1]);
+  if (DEBUG && vid == 0) printf("message0 = %f, message1 = %f\n", messages[0], messages[1]);
 
   factor.messages0[i] = messages[0];
   factor.messages1[i] = messages[1];
 }
 
 void SingleThreadBP::send_message_ftov(long fid, long vid) {
-  if (DEBUG && true) printf("\nsend_message_ftov %ld -> %ld\n", fid, vid);
+  if (DEBUG && vid == 0) printf("\nsend_message_ftov %ld -> %ld\n", fid, vid);
   Variable &variable = fg->variables[vid];
   Factor &factor     = fg->factors[fid];
   
@@ -98,7 +98,8 @@ void SingleThreadBP::send_message_ftov(long fid, long vid) {
       // compute weighted factor
       double weighted_factor = fg->infrs->weight_values[factor.weight_id]
         * factor.potential(fg->vifs, fg->infrs->assignments_free, vid, j);
-      if (DEBUG && true) {
+      if (DEBUG && vid == 0) {
+        printf("state = %d, current value = %d\n", state, j);
         printf("wid = %ld weight = %f weighted_factor = %f\n", 
           factor.weight_id, fg->infrs->weight_values[factor.weight_id], weighted_factor);
       }
@@ -107,11 +108,16 @@ void SingleThreadBP::send_message_ftov(long fid, long vid) {
       for (int i = 0; i < factor.tmp_variables.size(); i++) {
         long vid_other = factor.tmp_variables[i].vid;
         if (vid_other == vid) continue;
-        if (j == 0) {
+        if (fg->infrs->assignments_free[vid_other] == 0) {
+          printf("vid_other = %ld message0 = %f\n", vid_other, factor.messages0[i]);
           inner_messages[j] += factor.messages0[i];
         } else {
+          printf("vid_other = %ld message1 = %f\n", vid_other, factor.messages1[i]);
           inner_messages[j] += factor.messages1[i];
         }
+      }
+      if (DEBUG && vid == 0) {
+        printf("inner_message = %f\n", inner_messages[j]);
       }
       inner_messages[j] += weighted_factor;
       messages[j] = logadd(messages[j], inner_messages[j]);
@@ -130,5 +136,5 @@ void SingleThreadBP::send_message_ftov(long fid, long vid) {
   }
   variable.messages0[i] = messages[0];
   variable.messages1[i] = messages[1];
-  if (DEBUG && true) printf("message0 = %f, message1 = %f\n", messages[0], messages[1]);
+  if (DEBUG && vid == 0) printf("message0 = %f, message1 = %f\n", messages[0], messages[1]);
 }
