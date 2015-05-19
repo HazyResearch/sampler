@@ -61,6 +61,7 @@ TEST_SOURCES += test/loading_test.cpp
 TEST_SOURCES += test/factor_graph_test.cpp
 TEST_SOURCES += test/sampler_test.cpp
 TEST_SOURCES += test/multinomial.cpp
+TEST_SOURCES += test/tiny_tree_test.cpp
 TEST_OBJECTS = $(TEST_SOURCES:.cpp=.o)
 TEST_PROGRAM = $(PROGRAM)_test
 # test files need gtest

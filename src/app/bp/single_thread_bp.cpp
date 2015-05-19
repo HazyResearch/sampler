@@ -109,10 +109,8 @@ void SingleThreadBP::send_message_ftov(long fid, long vid) {
         long vid_other = factor.tmp_variables[i].vid;
         if (vid_other == vid) continue;
         if (fg->infrs->assignments_free[vid_other] == 0) {
-          printf("vid_other = %ld message0 = %f\n", vid_other, factor.messages0[i]);
           inner_messages[j] += factor.messages0[i];
         } else {
-          printf("vid_other = %ld message1 = %f\n", vid_other, factor.messages1[i]);
           inner_messages[j] += factor.messages1[i];
         }
       }
