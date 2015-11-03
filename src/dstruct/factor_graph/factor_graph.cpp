@@ -206,6 +206,23 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet, int inc){
     std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
   }
 
+  // load cnn configs
+  if (cmd.fusion_mode->getValue()) {
+    std::cout << "Loading CNN configs..." << std::endl;
+    // read ports
+    std::string filename_cnn_ports = cmd.cnn_port_file->getValue();
+    read_cnn_ports(filename_cnn_ports, *this);
+
+    // read cnn variables
+    int found = filename_cnn_ports.find_last_of("/\\");
+    std::string folder = filename_cnn_ports.substr(0, found);
+    for (std::string port : cnn_ports) {
+      std::string filename_cnn_configs = folder + "/cnn.config." + port;
+      read_cnn_configs(filename_cnn_configs, *this);
+    }
+
+  }
+
   // load active variables
   std::string active_vars = cmd.original_folder->getValue() + "/active.variables";
   long long active_id;
@@ -326,10 +343,10 @@ void dd::FactorGraph::organize_graph_by_edge() {
     variable.n_factors = variable.tmp_factor_ids.size();  // no edge count any more
     
     variable.n_start_i_factors = c_edge;
-    if(variable.domain_type == DTYPE_MULTINOMIAL){
-      variable.n_start_i_tally = ntallies;
-      ntallies += variable.upper_bound - variable.lower_bound + 1;
-    }
+    // if(variable.domain_type == DTYPE_MULTINOMIAL){
+    variable.n_start_i_tally = ntallies;
+    ntallies += variable.upper_bound - variable.lower_bound + 1;
+    // }
     for(const long & fid : variable.tmp_factor_ids){
       factor_ids[c_edge] = fid;
       compact_factors[c_edge].id = factors[fid].id;

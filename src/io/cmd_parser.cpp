@@ -19,6 +19,7 @@ namespace dd{
         variable_file = new TCLAP::ValueArg<std::string>("v","variables","variables file",false,"","string"); 
         factor_file = new TCLAP::ValueArg<std::string>("f","factors","factors file",false,"","string"); 
         output_folder = new TCLAP::ValueArg<std::string>("o","outputFile","Output Folder",false,"","string");
+        cnn_port_file = new TCLAP::ValueArg<std::string>("","cnn_ports","cnn ports",false,"","string");
         
         n_learning_epoch = new TCLAP::ValueArg<int>("l","n_learning_epoch","Number of Learning Epochs",true,-1,"int");
         n_samples_per_learning_epoch = new TCLAP::ValueArg<int>("s","n_samples_per_learning_epoch","Number of Samples per Leraning Epoch",true,-1,"int");
@@ -39,6 +40,8 @@ namespace dd{
 
         burn_in = new TCLAP::ValueArg<int>("", "burn_in", "Burn-in period", false, 0, "int");
 
+        fusion_mode = new TCLAP::SwitchArg("", "fusion", "fusion mode", false);
+
         cmd->add(*original_folder);
         cmd->add(*delta_folder);
 
@@ -49,6 +52,7 @@ namespace dd{
         cmd->add(*variable_file);
         cmd->add(*factor_file);
         cmd->add(*output_folder);
+        cmd->add(*cnn_port_file);
 
         cmd->add(*n_learning_epoch);
         cmd->add(*n_samples_per_learning_epoch);
@@ -67,6 +71,8 @@ namespace dd{
         cmd->add(*sample_evidence);
         cmd->add(*learn_non_evidence);
         cmd->add(*regularization);
+
+        cmd->add(fusion_mode);
       }else{
         std::cout << "ERROR: UNKNOWN APP NAME " << app_name << std::endl;
         std::cout << "AVAILABLE APP {gibbs/mat/inc}" << app_name << std::endl;

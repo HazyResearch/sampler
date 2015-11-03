@@ -6,12 +6,15 @@
 #include <fstream>
 #include <memory>
 #include "timer.h"
+#include <zmq.hpp>
+#include "message.h"
 
 dd::GibbsSampling::GibbsSampling(FactorGraph * const _p_fg, 
   CmdParser * const _p_cmd_parser, int n_datacopy, bool sample_evidence,
-  int burn_in, bool learn_non_evidence) 
+  int burn_in, bool learn_non_evidence, bool fusion_mode) 
   : p_fg(_p_fg), p_cmd_parser(_p_cmd_parser), sample_evidence(sample_evidence),
-    burn_in(burn_in), learn_non_evidence(learn_non_evidence) {
+    burn_in(burn_in), learn_non_evidence(learn_non_evidence),
+    fusion_mode(fusion_mode) {
     // the highest node number available
     n_numa_nodes = numa_max_node(); 
 
@@ -22,7 +25,12 @@ dd::GibbsSampling::GibbsSampling(FactorGraph * const _p_fg,
 
     // max possible threads per NUMA node
     n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF))/(n_numa_nodes+1);
-    //n_thread_per_numa = 1;
+
+    // use 1 numa node and 1 thread for fusion
+    if (fusion_mode) {
+      n_thread_per_numa = 1;
+      n_numa_nodes = 0;
+    }
 
     this->factorgraphs.push_back(*p_fg);
 
@@ -146,6 +154,24 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
   std::unique_ptr<double[]> ori_weights(new double[nweight]);
   memcpy(ori_weights.get(), this->factorgraphs[0].infrs->weight_values, sizeof(double)*nweight);
 
+  zmq::context_t context(1);
+  std::vector<int> batch_sizes, batch_counts, iteration_counts, max_iterations;
+  std::vector<zmq::socket_t> sockets;
+  std::unique_ptr<zmq::message_t[]> requests(new zmq::message_t[this->factorgraphs[0].cnn_ports.size()]);
+  for (size_t i = 0; i < this->factorgraphs[0].cnn_ports.size(); i++) {
+    batch_sizes.push_back(0);
+    batch_counts.push_back(0);
+    iteration_counts.push_back(0);
+
+    sockets.push_back(zmq::socket_t(context, ZMQ_REP));
+    sockets[i].bind(("tcp://*:" + this->factorgraphs[0].cnn_ports[i]).c_str());
+
+    // number of iterations Caffe needs to run
+    int iter = (this->factorgraphs[0].cnn_train_iterations[i] / this->factorgraphs[0].cnn_test_intervals[i] + 1) *
+      this->factorgraphs[0].cnn_test_iterations[i] + this->factorgraphs[0].cnn_train_iterations[i];
+    max_iterations.push_back(iter);
+  }
+
   // learning epochs
   for(int i_epoch=0;i_epoch<n_epoch;i_epoch++){
 
@@ -169,6 +195,35 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
     // wait the samplers to finish
     for(int i=0;i<nnode;i++){
       single_node_samplers[i].wait_sgd();
+    }
+
+    // fusion messages
+    if (fusion_mode) {
+      for (size_t i = 0; i < this->factorgraphs[0].cnn_ports.size(); i++) {
+        while (iteration_counts[i] < max_iterations[i]) {
+          // std::cout << "****" << iteration_counts[i] << "/" << max_iterations[i] << std::endl;
+          // NOTE assume batch size is smaller than the number of variables
+          if (batch_counts[i] >= this->factorgraphs[0].cnn_n_evid[i]) break;
+
+          sockets[i].recv(&requests[i]);
+          FusionMessage * msg = (FusionMessage*)requests[i].data();
+          batch_sizes[i] = msg->batch;
+
+          if (msg->msg_type == REQUEST_GRAD) {
+            single_node_samplers[0].learn_fusion(msg);
+            memcpy((void *)requests[i].data(), msg, msg->size());
+            sockets[i].send(requests[i]);
+            batch_counts[i] += batch_sizes[i];
+          } else if (msg->msg_type == REQUEST_ACCURACY) {
+            // save messages, which will be ued later in inference
+            single_node_samplers[0].save_fusion_message(msg);
+            memcpy((void *)requests[i].data(), msg, msg->size());
+            sockets[i].send(requests[i]);
+          }
+          iteration_counts[i] += 1;
+        }
+        batch_counts[i] = batch_counts[i] % this->factorgraphs[0].cnn_n_evid[i];
+      }
     }
 
     FactorGraph & cfg = this->factorgraphs[0];

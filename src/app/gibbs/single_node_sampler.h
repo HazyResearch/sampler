@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <thread>
 #include "common.h"
+#include "message.h"
 
 #ifndef _SINGLE_NODE_SAMPLER_H
 #define _SINGLE_NODE_SAMPLER_H
@@ -64,6 +65,9 @@ namespace dd{
      * Waits for sgd worker to finish
      */
     void wait_sgd();
+
+    void learn_fusion(FusionMessage * msg);
+    void save_fusion_message(FusionMessage * msg);
 
   };
 }

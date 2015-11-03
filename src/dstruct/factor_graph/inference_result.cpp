@@ -20,14 +20,16 @@ void dd::InferenceResult::init(Variable * variables, Weight * const weights){
     assignments_evid[variable.id] = variable.assignment_evid;
     agg_means[variable.id] = 0.0;
     agg_nsamples[variable.id] = 0.0;
-    if(variable.domain_type == DTYPE_MULTINOMIAL){
-      ntallies += variable.upper_bound - variable.lower_bound + 1;
-    }
+    // if(variable.domain_type == DTYPE_MULTINOMIAL){
+    ntallies += variable.upper_bound - variable.lower_bound + 1;
+    // }
   }
 
   multinomial_tallies = new int[ntallies];
+  cnn_ips = new double[ntallies];
   for(long i=0;i<ntallies;i++){
     multinomial_tallies[i] = 0;
+    cnn_ips[i] = 0;
   }
 
   for(long t=0;t<nweights;t++){
@@ -35,4 +37,5 @@ void dd::InferenceResult::init(Variable * variables, Weight * const weights){
     weight_values[weight.id] = weight.weight;
     weights_isfixed[weight.id] = weight.isfixed;
   }
+
 }

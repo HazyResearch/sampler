@@ -218,3 +218,25 @@ long long read_edges(string filename, dd::FactorGraph &fg)
     return count;   
 }
 
+void read_cnn_ports(string filename, dd::FactorGraph &fg) {
+    ifstream file(filename.c_str());
+    std::string port;
+    while (file >> port) {
+        fg.cnn_ports.push_back(port);
+    }
+}
+
+void read_cnn_configs(string filename, dd::FactorGraph &fg) {
+    ifstream file(filename.c_str());
+    long n_evid;
+    int cnn_train_iteration;
+    int cnn_test_iteration;
+    int cnn_test_interval;
+    file >> n_evid >> cnn_train_iteration >> cnn_test_iteration >> cnn_test_interval;
+    fg.cnn_n_evid.push_back(n_evid);
+    fg.cnn_train_iterations.push_back(cnn_train_iteration);
+    fg.cnn_test_iterations.push_back(cnn_test_iteration);
+    fg.cnn_test_intervals.push_back(cnn_test_interval);
+    file.close();
+}
+

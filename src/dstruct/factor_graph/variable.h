@@ -47,6 +47,8 @@ namespace dd{
 
     int next_sample;
 
+    bool in_cnn; // whether the vairiable is in cnn
+
     Variable();
 
     /**

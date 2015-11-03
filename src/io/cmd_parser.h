@@ -29,6 +29,7 @@ namespace dd{
     TCLAP::ValueArg<std::string> * variable_file;
     TCLAP::ValueArg<std::string> * factor_file;
     TCLAP::ValueArg<std::string> * output_folder;
+    TCLAP::ValueArg<std::string> * cnn_port_file;
 
     TCLAP::ValueArg<int> * n_learning_epoch;
     TCLAP::ValueArg<int> * n_samples_per_learning_epoch;
@@ -46,6 +47,7 @@ namespace dd{
     TCLAP::SwitchArg * quiet; 
     TCLAP::SwitchArg * sample_evidence;
     TCLAP::SwitchArg * learn_non_evidence;
+    TCLAP::SwitchArg * fusion_mode;
 
     TCLAP::ValueArg<std::string> * regularization;
 

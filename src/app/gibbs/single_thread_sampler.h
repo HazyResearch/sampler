@@ -84,6 +84,12 @@ namespace dd{
      */
     void sample_single_variable(long vid, bool is_inc);
 
+    // calculate gradient for fusion
+    // data is the bottom data of softmax layer (inner products of weights and features)
+    void calculate_gradient_for_fusion(int nelem, int batch, int* imgids, float * data);
+
+    void save_fusion_message(int nelem, int batch, int* imgids, float * data);
+
   };
 
 }

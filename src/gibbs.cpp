@@ -108,7 +108,7 @@ void inc(dd::CmdParser & cmd_parser){
                     meta.num_weights+meta2.num_weights, 
                     meta.num_edges+meta2.num_edges);
   fg.load(cmd_parser, is_quiet, 2);
-  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, false, 0, false);
+  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, false, 0, false, false);
 
   // number of learning epochs
   // the factor graph is copied on each NUMA node, so the total epochs =
@@ -176,7 +176,7 @@ void mat(dd::CmdParser & cmd_parser){
   // load factor graph
   dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
   fg.load(cmd_parser, is_quiet, 1);
-  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, false, 0, false);
+  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, false, 0, false, false);
 
   // number of learning epochs
   // the factor graph is copied on each NUMA node, so the total epochs =
@@ -241,6 +241,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   int burn_in = cmd_parser.burn_in->getValue();
   bool learn_non_evidence = cmd_parser.learn_non_evidence->getValue();
   regularization reg = cmd_parser.regularization->getValue() == "l1" ? REG_L1 : REG_L2;
+  bool fusion_mode = cmd_parser.fusion_mode->getValue();
 
   Meta meta = read_meta(fg_file); 
 
@@ -286,7 +287,7 @@ void gibbs(dd::CmdParser & cmd_parser){
   // load factor graph
   dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights, meta.num_edges);
   fg.load(cmd_parser, is_quiet, false);
-  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, sample_evidence, burn_in, learn_non_evidence);
+  dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, sample_evidence, burn_in, learn_non_evidence, fusion_mode);
 
   // number of learning epochs
   // the factor graph is copied on each NUMA node, so the total epochs =
@@ -306,5 +307,4 @@ void gibbs(dd::CmdParser & cmd_parser){
   // inference
   gibbs.inference(numa_aware_n_epoch, is_quiet, false, false);
   gibbs.aggregate_results_and_dump(is_quiet, 0);
-
 }

@@ -36,6 +36,9 @@ namespace dd{
     for(long i=0;i<p_fg->infrs->ntallies;i++){
       p_fg->infrs->multinomial_tallies[i] = 0;
     }
+    // for (int i = 0; i < 10; i++) {
+    //   printf("%f\n", p_fg->infrs->cnn_ips[i]);
+    // }
   }
 
   void SingleNodeSampler::sample(int i_epoch){
@@ -71,6 +74,16 @@ namespace dd{
     for(int i=0;i<this->nthread;i++){
       this->threads[i].join();
     }
+  }
+
+  void SingleNodeSampler::learn_fusion(FusionMessage *msg) {
+    SingleThreadSampler sampler = SingleThreadSampler(p_fg, sample_evidence, 0, learn_non_evidence);
+    sampler.calculate_gradient_for_fusion(msg->nelem, msg->batch, msg->imgids, msg->content);
+  }
+
+  void SingleNodeSampler::save_fusion_message(FusionMessage *msg) {
+    SingleThreadSampler sampler = SingleThreadSampler(p_fg, sample_evidence, 0, learn_non_evidence);
+    sampler.save_fusion_message(msg->nelem, msg->batch, msg->imgids, msg->content);
   }
 
 }

@@ -4,9 +4,9 @@
 
 # common compiler flags
 CXXFLAGS = -std=c++0x -Wall -fno-strict-aliasing
-LDFLAGS =
-LDLIBS =
-CXXFLAGS += -I./lib/tclap/include/ -I./src
+LDFLAGS = -L./lib/zeromq/lib
+LDLIBS = -lzmq
+CXXFLAGS += -I./lib/tclap/include/ -I./src -I./lib/zeromq/include/
 
 # platform dependent compiler flags
 UNAME := $(shell uname)
@@ -15,6 +15,7 @@ ifeq ($(UNAME), Linux)
 ifndef CXX
 CXX = g++
 endif
+LDFLAGS += -Wl,-rpath,`pwd`/lib/zeromq/lib
 # optimization flags
 CXXFLAGS += -Ofast
 # using NUMA for Linux
@@ -64,7 +65,7 @@ TEST_PROGRAM = $(PROGRAM)_test
 # test files need gtest
 $(TEST_OBJECTS): CXXFLAGS += -I./lib/gtest-1.7.0/include/
 $(TEST_PROGRAM): LDFLAGS += -L./lib/gtest/
-$(TEST_PROGRAM): LDLIBS += -lgtest
+$(TEST_PROGRAM): LDLIBS += -lgtest -lpthread
 
 # how to link our sampler
 $(PROGRAM): $(OBJECTS)
@@ -94,6 +95,24 @@ dep:
 	./configure --prefix=`pwd`/../tclap;\
 	make;\
 	make install
+	# libsodium
+	cd lib;\
+	wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.1.tar.gz;\
+	tar xf libsodium-1.0.1.tar.gz;\
+	cd libsodium-1.0.1;\
+	./configure --prefix=`pwd`/../libsodium;\
+	make;\
+	make install
+	# zmq
+	cd lib;\
+	wget http://download.zeromq.org/zeromq-4.1.3.tar.gz;\
+	tar xf zeromq-4.1.3.tar.gz;\
+	cd zeromq-4.1.3;\
+	PKG_CONFIG_PATH=`pwd`/../libsodium/lib/pkgconfig ./configure --prefix=`pwd`/../zeromq;\
+	make;\
+	make install;\
+	wget https://raw.githubusercontent.com/zeromq/cppzmq/4d79066be3c3ed0cbf247d3a2eb04be2b803eb3c/zmq.hpp;\
+	mv zmq.hpp ../zeromq/include/
 	# bats for end-to-end tests
 	git clone https://github.com/sstephenson/bats test/bats
 .PHONY: dep

@@ -21,6 +21,7 @@ namespace dd{
       this->n_factors = _n_factors;
       this->isactive = false;
       this->component_id = -1;
+      this->in_cnn = false;
     }
 
     bool VariableInFactor::satisfiedUsing(int value) const{

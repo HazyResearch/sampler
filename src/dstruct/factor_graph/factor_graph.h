@@ -67,6 +67,12 @@ namespace dd{
 
     bool is_inc;
 
+    std::vector<int> cnn_n_evid; // number of training variables in cnn
+    std::vector<std::string> cnn_ports; // cnn ports
+    std::vector<int> cnn_train_iterations; // cnn training iterations
+    std::vector<int> cnn_test_iterations; // cnn test iterations
+    std::vector<int> cnn_test_intervals; // cnn test intervals
+
     /**
      * Constructs a new factor graph with given number number of variables,
      * factors, weights, and edges
@@ -171,6 +177,8 @@ namespace dd{
           pot += infrs->weight_values[wid] * tmp;
         }
       } // end if for variable type
+      // if (!does_change_evid) printf("sample pot = %f\n", infrs->cnn_ips[variable.n_start_i_tally]);
+      pot += infrs->cnn_ips[variable.n_start_i_tally + (int)(proposal) - variable.lower_bound];
       return pot;
     }
 

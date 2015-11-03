@@ -43,6 +43,7 @@ namespace dd{
     
     Variable & variable = p_fg->variables[vid];
     if (variable.is_observation) return;
+    if (variable.in_cnn) return;
 
     if (!learn_non_evidence && !variable.is_evid) return;
 
@@ -83,7 +84,7 @@ namespace dd{
     }else if(variable.domain_type == DTYPE_MULTINOMIAL){ // multinomial
 
       // varlen_potential_buffer contains potential for each proposals
-      while(variable.upper_bound >= varlen_potential_buffer.size()){
+      while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
         varlen_potential_buffer.push_back(0.0);
       }
 
@@ -204,9 +205,11 @@ namespace dd{
 
       }else if(variable.domain_type == DTYPE_MULTINOMIAL){
 
-        while(variable.upper_bound >= varlen_potential_buffer.size()){
+        while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
           varlen_potential_buffer.push_back(0.0);
         }
+
+        // printf("sample inf %f\n", p_fg->infrs->cnn_ips[variable.n_start_i_tally]);
 
         if(variable.is_evid == false){
           sum = -100000.0;
@@ -215,6 +218,7 @@ namespace dd{
           for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
             varlen_potential_buffer[propose] = p_fg->template potential<false>(variable, propose);
             sum = logadd(sum, varlen_potential_buffer[propose]);
+            // printf("vid = %ld, pot = %f\n", variable.id, varlen_potential_buffer[propose]);
           }
 
           *this->p_rand_obj_buf = erand48(this->p_rand_seed);
@@ -238,6 +242,132 @@ namespace dd{
 
 
 
+  }
+
+  void dd::SingleThreadSampler::calculate_gradient_for_fusion(int nelem, int batch, int* imgids, float * data) {
+
+    int dim = nelem / batch;
+    double loss = 0;
+    // printf("nelem = %d batch = %d \n", nelem, batch);
+
+    for (int i = 0; i < batch; ++i) {
+
+      int vid = imgids[i];
+
+      Variable & variable = this->p_fg->variables[vid];
+
+      // save the message
+      for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
+        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - variable.lower_bound] = data[i * dim + label];
+      }
+      // printf("id = %d start tally = %ld\n", vid, variable.n_start_i_tally);
+
+
+      if (variable.domain_type == DTYPE_BOOLEAN) { // boolean
+
+        // sample the variable regardless of whether it's evidence
+        potential_pos_freeevid = p_fg->template potential<true>(variable, 1);
+        potential_neg_freeevid = p_fg->template potential<true>(variable, 0);
+
+        int sample_free = 0;
+        *this->p_rand_obj_buf = erand48(this->p_rand_seed);
+        // if ((*this->p_rand_obj_buf) * (1.0 + exp(potential_neg_freeevid-potential_pos_freeevid + data[i * dim] - data[i * dim + 1])) < 1.0) {
+        if ((*this->p_rand_obj_buf) * (1.0 + exp(potential_neg_freeevid-potential_pos_freeevid)) < 1.0) {
+          sample_free = 1;
+          p_fg->template update<true>(variable, 1.0);
+        } else {
+          sample_free = 0;
+          p_fg->template update<true>(variable, 0.0);
+        }
+
+        this->p_fg->update_weight(variable);
+
+        // calculate loss
+        double prob = exp(data[i * dim + variable.assignment_evid]) / (exp(data[i * dim]) + exp(data[i * dim + 1]));
+        // double sample_prob = exp(data[i * dim + 1]) / (exp(data[i * dim]) + exp(data[i * dim + 1]));
+        // printf("sample prob = %f rng = %f, sample = %d\n", sample_prob, (*this->p_rand_obj_buf), sample_free);
+        // printf("vid = %d data = %f %f evid = %d prob = %f \n",
+        //   vid, data[i * dim], data[i * dim + 1], variable.assignment_evid, prob);
+        loss += -log(prob);
+
+        for (int label = 0; label < 2; label++) {
+          data[i * dim + label] = -(variable.assignment_evid == label) + (sample_free == label);
+        }
+
+        // printf("data = %f %f\n", data[i * dim], data[i * dim + 1]);
+
+      } else if (variable.domain_type == DTYPE_MULTINOMIAL) { // multinomial
+
+        // varlen_potential_buffer contains potential for each proposals
+        while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
+          varlen_potential_buffer.push_back(0.0);
+        }
+
+        sum = -100000.0;
+        acc = 0.0;
+        multi_proposal = -1;
+        for (int propose = variable.lower_bound; propose <= variable.upper_bound; propose++) {
+          // varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose) + data[i * dim + propose];
+          varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
+          sum = logadd(sum, varlen_potential_buffer[propose]);
+        }
+
+        *this->p_rand_obj_buf = erand48(this->p_rand_seed);
+        for(int propose=variable.lower_bound; propose <= variable.upper_bound; propose++){
+          acc += exp(varlen_potential_buffer[propose]-sum);
+          if(*this->p_rand_obj_buf <= acc){
+            multi_proposal = propose;
+            break;
+          }
+        }
+        assert(multi_proposal != -1);
+        p_fg->template update<true>(variable, multi_proposal);
+
+        this->p_fg->update_weight(variable);
+
+
+        // printf("vid = %d evid = %d sample = %d sum = %f \n", vid, variable.assignment_evid, multi_proposal, sum);
+        // for (int j = 0; j < variable.upper_bound; j++) {
+        //   printf("j = %d data = %f \n", j, data[i * dim + j]);
+        // }
+
+        // loss
+        loss += -(data[i * dim + variable.assignment_evid] - sum);
+
+        // gradient
+        for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
+          data[i * dim + label] = -(variable.assignment_evid == label) + (multi_proposal == label);
+        }
+
+        // for (int j = 0; j < variable.upper_bound; j++) {
+        //   printf("j = %d gradient = %f \n", j, data[i * dim + j]);
+        // }
+
+      }
+    }
+
+
+    if (batch > 0){
+        for (int i = 0; i < nelem; ++i) {
+            data[i] /= batch;
+        }
+        // std::cout << "batch = " << batch << "    LOSS = " << loss / batch << std::endl;
+    }
+  }
+
+  void dd::SingleThreadSampler::save_fusion_message(int nelem, int batch, int* imgids, float * data) {
+    int dim = nelem / batch;
+    
+    for (int i = 0; i < batch; ++i) {
+      int vid = imgids[i];
+      Variable & variable = this->p_fg->variables[vid];
+
+      // save the message
+      for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
+        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - variable.lower_bound] = data[i * dim + label];
+      }
+
+    }
   }
 
 

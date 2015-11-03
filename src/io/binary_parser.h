@@ -44,4 +44,10 @@ long long read_factors(string filename, dd::FactorGraph &);
  */
 long long read_edges(string filename, dd::FactorGraph &);
 
+// loads cnn ports
+void read_cnn_ports(string filename, dd::FactorGraph &fg);
+
+// loads cnn configs
+void read_cnn_configs(string filename, dd::FactorGraph &fg);
+
 #endif
