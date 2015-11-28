@@ -232,11 +232,13 @@ void read_cnn_configs(string filename, dd::FactorGraph &fg) {
     int cnn_train_iteration;
     int cnn_test_iteration;
     int cnn_test_interval;
-    file >> n_evid >> cnn_train_iteration >> cnn_test_iteration >> cnn_test_interval;
+    int cnn_batch_size;
+    file >> n_evid >> cnn_train_iteration >> cnn_test_iteration >> cnn_test_interval >> cnn_batch_size;
     fg.cnn_n_evid.push_back(n_evid);
     fg.cnn_train_iterations.push_back(cnn_train_iteration);
     fg.cnn_test_iterations.push_back(cnn_test_iteration);
     fg.cnn_test_intervals.push_back(cnn_test_interval);
+    fg.cnn_batch_sizes.push_back(cnn_batch_size);
     file.close();
 }
 

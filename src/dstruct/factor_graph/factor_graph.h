@@ -72,6 +72,7 @@ namespace dd{
     std::vector<int> cnn_train_iterations; // cnn training iterations
     std::vector<int> cnn_test_iterations; // cnn test iterations
     std::vector<int> cnn_test_intervals; // cnn test intervals
+    std::vector<int> cnn_batch_sizes;
 
     /**
      * Constructs a new factor graph with given number number of variables,

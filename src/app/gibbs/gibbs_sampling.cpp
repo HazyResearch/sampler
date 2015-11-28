@@ -143,6 +143,7 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
   int nvar = this->factorgraphs[0].n_var;
   int nnode = n_numa_nodes + 1;
   int nweight = this->factorgraphs[0].n_weight;
+  int nepoch = n_epoch;
 
   // single node samplers
   std::vector<SingleNodeSampler> single_node_samplers;
@@ -154,12 +155,12 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
   std::unique_ptr<double[]> ori_weights(new double[nweight]);
   memcpy(ori_weights.get(), this->factorgraphs[0].infrs->weight_values, sizeof(double)*nweight);
 
+
   zmq::context_t context(1);
-  std::vector<int> batch_sizes, batch_counts, iteration_counts, max_iterations;
+  std::vector<int> batch_counts, iteration_counts, max_iterations;
   std::vector<zmq::socket_t> sockets;
   std::unique_ptr<zmq::message_t[]> requests(new zmq::message_t[this->factorgraphs[0].cnn_ports.size()]);
   for (size_t i = 0; i < this->factorgraphs[0].cnn_ports.size(); i++) {
-    batch_sizes.push_back(0);
     batch_counts.push_back(0);
     iteration_counts.push_back(0);
 
@@ -170,10 +171,14 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
     int iter = (this->factorgraphs[0].cnn_train_iterations[i] / this->factorgraphs[0].cnn_test_intervals[i] + 1) *
       this->factorgraphs[0].cnn_test_iterations[i] + this->factorgraphs[0].cnn_train_iterations[i];
     max_iterations.push_back(iter);
+
+    // hack make sure number of epochs is legal
+    int epochs = this->factorgraphs[0].cnn_train_iterations[i] * this->factorgraphs[0].cnn_batch_sizes[i] / this->factorgraphs[0].cnn_n_evid[i] + 1;
+    if (epochs > n_epoch) nepoch = epochs;
   }
 
   // learning epochs
-  for(int i_epoch=0;i_epoch<n_epoch;i_epoch++){
+  for(int i_epoch=0;i_epoch<nepoch;i_epoch++){
 
     if (!is_quiet) {
       std::cout << std::setprecision(2) << "LEARNING EPOCH " << i_epoch * nnode <<  "~" 
@@ -207,13 +212,17 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
 
           sockets[i].recv(&requests[i]);
           FusionMessage * msg = (FusionMessage*)requests[i].data();
-          batch_sizes[i] = msg->batch;
+          assert(this->factorgraphs[0].cnn_batch_sizes[i] = msg->batch);
+
+          // for (int j = 0; j < msg->batch; j++) {
+          //   printf("vid = %d label = %d\n", msg->imgids[j], msg->labels[j]);
+          // }
 
           if (msg->msg_type == REQUEST_GRAD) {
             single_node_samplers[0].learn_fusion(msg);
             memcpy((void *)requests[i].data(), msg, msg->size());
             sockets[i].send(requests[i]);
-            batch_counts[i] += batch_sizes[i];
+            batch_counts[i] += msg->batch;
           } else if (msg->msg_type == REQUEST_ACCURACY) {
             // save messages, which will be ued later in inference
             single_node_samplers[0].save_fusion_message(msg);
