@@ -252,7 +252,7 @@ namespace dd{
 
     for (int i = 0; i < batch; ++i) {
 
-      int vid = imgids[i];
+      long vid = imgids[i];
 
       Variable & variable = this->p_fg->variables[vid];
 
@@ -260,7 +260,6 @@ namespace dd{
       for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
         p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - variable.lower_bound] = data[i * dim + label];
       }
-      // printf("id = %d start tally = %ld\n", vid, variable.n_start_i_tally);
 
 
       if (variable.domain_type == DTYPE_BOOLEAN) { // boolean
@@ -294,8 +293,6 @@ namespace dd{
           data[i * dim + label] = -(variable.assignment_evid == label) + (sample_free == label);
         }
 
-        // printf("data = %f %f\n", data[i * dim], data[i * dim + 1]);
-
       } else if (variable.domain_type == DTYPE_MULTINOMIAL) { // multinomial
 
         // varlen_potential_buffer contains potential for each proposals
@@ -303,32 +300,43 @@ namespace dd{
           varlen_potential_buffer.push_back(0.0);
         }
 
-        sum = -100000.0;
-        acc = 0.0;
-        multi_proposal = -1;
-        for (int propose = variable.lower_bound; propose <= variable.upper_bound; propose++) {
-          // varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose) + data[i * dim + propose];
-          varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
-          sum = logadd(sum, varlen_potential_buffer[propose]);
-        }
+        int n_samples = 100;
 
-        *this->p_rand_obj_buf = erand48(this->p_rand_seed);
-        for(int propose=variable.lower_bound; propose <= variable.upper_bound; propose++){
-          acc += exp(varlen_potential_buffer[propose]-sum);
-          if(*this->p_rand_obj_buf <= acc){
-            multi_proposal = propose;
-            break;
+        std::vector<double> samples_free(variable.upper_bound - variable.lower_bound + 1, 0);
+
+        for (int i = 0; i < n_samples; i++) {
+
+          sum = -100000.0;
+          acc = 0.0;
+          multi_proposal = -1;
+          for (int propose = variable.lower_bound; propose <= variable.upper_bound; propose++) {
+            // varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose) + data[i * dim + propose];
+            varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
+            sum = logadd(sum, varlen_potential_buffer[propose]);
           }
-        }
-        assert(multi_proposal != -1);
-        p_fg->template update<true>(variable, multi_proposal);
 
+          *this->p_rand_obj_buf = erand48(this->p_rand_seed);
+          for(int propose=variable.lower_bound; propose <= variable.upper_bound; propose++){
+            // printf("vid = %d, pot_buf = %f\n", vid, varlen_potential_buffer[propose]);
+            acc += exp(varlen_potential_buffer[propose]-sum);
+            if(*this->p_rand_obj_buf <= acc){
+              multi_proposal = propose;
+              break;
+            }
+          }
+          assert(multi_proposal != -1);
+
+          samples_free[multi_proposal] += 1;
+
+        }
+
+        p_fg->template update<true>(variable, multi_proposal);
         this->p_fg->update_weight(variable);
 
 
         // printf("vid = %d evid = %d sample = %d sum = %f \n", vid, variable.assignment_evid, multi_proposal, sum);
-        // for (int j = 0; j < variable.upper_bound; j++) {
-        //   printf("j = %d data = %f \n", j, data[i * dim + j]);
+        // for (int j = 0; j <= variable.upper_bound; j++) {
+        //   printf("vid = %ld j = %d data = %f \n", vid, j, data[i * dim + j]);
         // }
 
         // loss
@@ -336,11 +344,14 @@ namespace dd{
 
         // gradient
         for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
-          data[i * dim + label] = -(variable.assignment_evid == label) + (multi_proposal == label);
+          samples_free[label] /= n_samples;
+        }
+        for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
+          data[i * dim + label] = -(variable.assignment_evid == label) + samples_free[label];
         }
 
-        // for (int j = 0; j < variable.upper_bound; j++) {
-        //   printf("j = %d gradient = %f \n", j, data[i * dim + j]);
+        // for (int j = 0; j <= variable.upper_bound; j++) {
+        //   printf("vid = %ld label = %d j = %d gradient = %f \n", vid, variable.assignment_evid, j, data[i * dim + j]);
         // }
 
       }
