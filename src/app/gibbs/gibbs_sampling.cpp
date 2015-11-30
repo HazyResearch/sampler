@@ -168,13 +168,17 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
     sockets[i].bind(("tcp://*:" + this->factorgraphs[0].cnn_ports[i]).c_str());
 
     // number of iterations Caffe needs to run
-    int iter = (this->factorgraphs[0].cnn_train_iterations[i] / this->factorgraphs[0].cnn_test_intervals[i] + 1) *
+    int iter = this->factorgraphs[0].cnn_is_pretrained[i] ?
+      this->factorgraphs[0].cnn_test_iterations[i] :
+      (this->factorgraphs[0].cnn_train_iterations[i] / this->factorgraphs[0].cnn_test_intervals[i] + 1) *
       this->factorgraphs[0].cnn_test_iterations[i] + this->factorgraphs[0].cnn_train_iterations[i];
     max_iterations.push_back(iter);
 
     // hack make sure number of epochs is legal
-    int epochs = this->factorgraphs[0].cnn_train_iterations[i] * this->factorgraphs[0].cnn_batch_sizes[i] / this->factorgraphs[0].cnn_n_evid[i] + 1;
-    if (epochs > n_epoch) nepoch = epochs;
+    if (!this->factorgraphs[0].cnn_is_pretrained[i]) {
+      int epochs = this->factorgraphs[0].cnn_train_iterations[i] * this->factorgraphs[0].cnn_batch_sizes[i] / this->factorgraphs[0].cnn_n_evid[i] + 1;
+      if (epochs > n_epoch) nepoch = epochs;
+    }
   }
 
   // learning epochs
@@ -208,7 +212,7 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
         while (iteration_counts[i] < max_iterations[i]) {
           // std::cout << "****" << iteration_counts[i] << "/" << max_iterations[i] << std::endl;
           // NOTE assume batch size is smaller than the number of variables
-          if (batch_counts[i] >= this->factorgraphs[0].cnn_n_evid[i]) break;
+          if (!this->factorgraphs[0].cnn_is_pretrained[i] && batch_counts[i] >= this->factorgraphs[0].cnn_n_evid[i]) break;
 
           sockets[i].recv(&requests[i]);
           FusionMessage * msg = (FusionMessage*)requests[i].data();
@@ -231,7 +235,9 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
           }
           iteration_counts[i] += 1;
         }
-        batch_counts[i] = batch_counts[i] % this->factorgraphs[0].cnn_n_evid[i];
+        if (!this->factorgraphs[0].cnn_is_pretrained[i]) {
+          batch_counts[i] = batch_counts[i] % this->factorgraphs[0].cnn_n_evid[i];
+        }
       }
     }
 

@@ -239,6 +239,7 @@ void read_cnn_configs(string filename, dd::FactorGraph &fg) {
     fg.cnn_test_iterations.push_back(cnn_test_iteration);
     fg.cnn_test_intervals.push_back(cnn_test_interval);
     fg.cnn_batch_sizes.push_back(cnn_batch_size);
+    fg.cnn_is_pretrained.push_back(cnn_batch_size == 0);
     file.close();
 }
 
