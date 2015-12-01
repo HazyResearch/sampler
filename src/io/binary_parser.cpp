@@ -2,7 +2,10 @@
 #include <fstream>
 #include <stdint.h>
 #include "binary_parser.h"
-
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <cstring>
+#include <unistd.h>
 
 // 64-bit big endian to little endian
 # define bswap_64(x) \
@@ -43,41 +46,43 @@ Meta read_meta(string meta_file)
 }
 
 // Read weights and load into factor graph
-long long read_weights(string filename, dd::FactorGraph &fg)
+long long read_weights(string filename, dd::FactorGraph &fg, long long n_weight)
 {
-	ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     bool isfixed;
     char padding;
     double initial_value;
-    while (file.good()) {
-    	// read fields
-        file.read((char *)&id, 8);
-        file.read((char *)&padding, 1);
-        if (!file.read((char *)&initial_value, 8)) break;
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = n_weight * WEIGHT_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&padding, ptr + 8, 1);
+        memcpy((char *)&initial_value, ptr + 9, 8);
+        ptr += WEIGHT_RECORD_SIZE;
+
+        isfixed = padding;
         // convert endian
         id = bswap_64(id);
-        isfixed = padding;
         long long tmp = bswap_64(*(uint64_t *)&initial_value);
         initial_value = *(double *)&tmp;
-
         // load into factor graph
         fg.weights[fg.c_nweight] = dd::Weight(id, initial_value, isfixed);
-		fg.c_nweight++;
-		count++;
+        fg.c_nweight++;
+        count++;
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
-
 // Read variables
-long long read_variables(string filename, dd::FactorGraph &fg)
+long long read_variables(string filename, dd::FactorGraph &fg, long long n_variable)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     char isevidence;
@@ -85,15 +90,20 @@ long long read_variables(string filename, dd::FactorGraph &fg)
     short type;
     long long edge_count;
     long long cardinality;
-    while (file.good()) {
-        // read fields
-        file.read((char *)&id, 8);
-        file.read((char *)&isevidence, 1);
-        file.read((char *)&initial_value, 8);
-        file.read((char *)&type, 2);
-        file.read((char *)&edge_count, 8);
-        if (!file.read((char *)&cardinality, 8)) break;
 
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = n_variable * VARIABLE_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&isevidence, ptr + 8, 1);
+        memcpy((char *)&initial_value, ptr + 9, 8);
+        memcpy((char *)&type, ptr + 17, 2);
+        memcpy((char *)&edge_count, ptr + 19, 8);
+        memcpy((char *)&cardinality, ptr + 27, 8);
+        ptr += VARIABLE_RECORD_SIZE;
         // convert endian
         id = bswap_64(id);
         type = bswap_16(type);
@@ -130,18 +140,16 @@ long long read_variables(string filename, dd::FactorGraph &fg)
             fg.n_query++;
         }
     }
-    file.close();
-
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
 // Read factors (original mode)
 // The format of each line in factor file is: weight_id, type, equal_predicate, edge_count, variable_id_1, padding_1, ..., variable_id_k, padding_k
 // It is binary format without delimiter.
-long long read_factors(string filename, dd::FactorGraph &fg)
+long long read_factors(string filename, dd::FactorGraph &fg, long long n_factor, long long n_edge)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long variable_id;
     long long weightid;
@@ -150,11 +158,18 @@ long long read_factors(string filename, dd::FactorGraph &fg)
     long long equal_predicate;
     char padding;
     bool ispositive;
-    while (file.good()) {
-        file.read((char *)&weightid, 8);
-        file.read((char *)&type, 2);
-        file.read((char *)&equal_predicate, 8);
-        if (!file.read((char *)&edge_count, 8)) break;
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = n_factor * FACTOR_RECORD_SIZE + n_edge * EDGE_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&weightid, ptr, 8);
+        memcpy((char *)&type, ptr + 8, 2);
+        memcpy((char *)&equal_predicate, ptr + 10, 8);
+        memcpy((char *)&edge_count, ptr + 18, 8);
+        ptr += FACTOR_RECORD_SIZE;
 
         weightid = bswap_64(weightid);
         type = bswap_16(type);
@@ -165,8 +180,9 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         fg.factors[fg.c_nfactor] = dd::Factor(fg.c_nfactor, weightid, type, edge_count);
 
         for (long long position = 0; position < edge_count; position++) {
-            file.read((char *)&variable_id, 8);
-            file.read((char *)&padding, 1);
+            memcpy((char *)&variable_id, ptr, 8);
+            memcpy((char *)&padding, ptr + 8, 1);
+            ptr += EDGE_RECORD_SIZE;
             variable_id = bswap_64(variable_id);
             ispositive = padding;
 
@@ -187,27 +203,33 @@ long long read_factors(string filename, dd::FactorGraph &fg)
         }
         fg.c_nfactor ++;
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
 // Read factors (incremental mode)
 // The format of each line in factor file is: factor_id, weight_id, type, edge_count
 // It is binary format without delimiter.
-long long read_factors_inc(string filename, dd::FactorGraph &fg)
+long long read_factors_inc(string filename, dd::FactorGraph &fg, long long n_factor)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long id;
     long long weightid;
     short type;
     long long edge_count;
-    while (file.good()) {
-        file.read((char *)&id, 8);
-        file.read((char *)&weightid, 8);
-        file.read((char *)&type, 2);
-        if (!file.read((char *)&edge_count, 8)) break;
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = n_factor * FACTOR_INC_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
+        memcpy((char *)&id, ptr, 8);
+        memcpy((char *)&weightid, ptr + 8, 8);
+        memcpy((char *)&type, ptr + 16, 2);
+        memcpy((char *)&edge_count, ptr + 18, 8);
+        ptr += FACTOR_INC_RECORD_SIZE;
 
         id = bswap_64(id);
         weightid = bswap_64(weightid);
@@ -216,19 +238,18 @@ long long read_factors_inc(string filename, dd::FactorGraph &fg)
 
         count++;
         fg.factors[fg.c_nfactor] = dd::Factor(id, weightid, type, edge_count);
-        fg.c_nfactor ++;
+        fg.c_nfactor++;
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }
 
 // Read edges (incremental mode)
 // The format of each line in factor file is: variable_id, factor_id, position, padding
 // It is binary format without delimiter.
-long long read_edges_inc(string filename, dd::FactorGraph &fg)
+long long read_edges_inc(string filename, dd::FactorGraph &fg, long long n_edge)
 {
-    ifstream file;
-    file.open(filename.c_str(), ios::in | ios::binary);
     long long count = 0;
     long long variable_id;
     long long factor_id;
@@ -236,13 +257,20 @@ long long read_edges_inc(string filename, dd::FactorGraph &fg)
     bool ispositive;
     char padding;
     long long equal_predicate;
-    while (file.good()) {
+
+    int fd = open(filename.c_str(), O_RDONLY);
+    long size = n_edge * EDGE_INC_RECORD_SIZE;
+    char *memory_map = (char *)mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    char *ptr = memory_map;
+    char *end = memory_map + size;
+    while (ptr < end) {
         // read fields
-        file.read((char *)&variable_id, 8);
-        file.read((char *)&factor_id, 8);
-        file.read((char *)&position, 8);
-        file.read((char *)&padding, 1);
-        if (!file.read((char *)&equal_predicate, 8)) break;
+        memcpy((char *)&variable_id, ptr, 8);
+        memcpy((char *)&factor_id, ptr + 8, 8);
+        memcpy((char *)&position, ptr + 16, 8);
+        memcpy((char *)&padding, ptr + 24, 1);
+        memcpy((char *)&equal_predicate, ptr + 25, 8);
+        ptr += EDGE_INC_RECORD_SIZE;
 
         variable_id = bswap_64(variable_id);
         factor_id = bswap_64(factor_id);
@@ -274,6 +302,7 @@ long long read_edges_inc(string filename, dd::FactorGraph &fg)
         fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
 
     }
-    file.close();
+    munmap(memory_map, size);
+    close(fd);
     return count;
 }

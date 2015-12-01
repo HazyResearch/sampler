@@ -1,5 +1,6 @@
 
 #include "io/cmd_parser.h"
+#include "io/binary_parser.h"
 #include "common.h"
 
 #include "dstruct/factor_graph/variable.h"
@@ -8,9 +9,22 @@
 #include "dstruct/factor_graph/inference_result.h"
 
 #include <xmmintrin.h>
+using namespace std;
 
 #ifndef _FACTOR_GRAPH_H_
 #define _FACTOR_GRAPH_H_
+
+// meta data
+typedef struct {
+  long long num_weights;
+  long long num_variables;
+  long long num_factors;
+  long long num_edges;
+  string weights_file;
+  string variables_file;
+  string factors_file;
+  string edges_file;
+} Meta;
 
 namespace dd{
   /**
@@ -177,7 +191,7 @@ namespace dd{
     /**
      * Loads the factor graph using arguments specified from command line
      */
-    void load(const CmdParser & cmd, const bool is_quiet, int inc);
+    void load(const CmdParser & cmd, const bool is_quiet, int inc, Meta meta, Meta meta2);
 
     /**
      * Construct the edge-based store of factor graph in compact_factors, etc.

@@ -3,19 +3,6 @@
 
 #include <stdlib.h>
 #include "dstruct/factor_graph/factor_graph.h"
-using namespace std;
-
-// meta data
-typedef struct {
-	long long num_weights;
-	long long num_variables;
-	long long num_factors;
-	long long num_edges;
-	string weights_file; 
-	string variables_file;
-	string factors_file;
-  string edges_file;
-} Meta;
 
 /**
  * Reads meta data from the given file.
@@ -27,26 +14,26 @@ Meta read_meta(string meta_file);
 /**
  * Loads weights from the given file into the given factor graph
  */
-long long read_weights(string filename, dd::FactorGraph &);
+long long read_weights(string filename, dd::FactorGraph &, long long n_weight);
 
 /**
  * Loads variables from the given file into the given factor graph
  */
-long long read_variables(string filename, dd::FactorGraph &);
+long long read_variables(string filename, dd::FactorGraph &, long long n_variable);
 
 /**
  * Loads factors from the given file into the given factor graph (original mode)
  */
-long long read_factors(string filename, dd::FactorGraph &);
+long long read_factors(string filename, dd::FactorGraph &, long long n_factor, long long n_edge);
 
 /**
  * Loads factors from the given file into the given factor graph (incremental mode)
  */
-long long read_factors_inc(string filename, dd::FactorGraph &);
+long long read_factors_inc(string filename, dd::FactorGraph &, long long n_factor);
 
 /**
  * Loads edges from the given file into the given factor graph (incremental mode)
  */
-long long read_edges_inc(string filename, dd::FactorGraph &);    
+long long read_edges_inc(string filename, dd::FactorGraph &, long long n_edge);
 
 #endif

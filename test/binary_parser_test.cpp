@@ -20,7 +20,7 @@ using namespace dd;
 // test read_variables
 TEST(BinaryParserTest, read_variables) {
 	dd::FactorGraph fg(18, 1, 1, 1);
-	long nvars = read_variables("./test/coin/graph.variables", fg);
+	long nvars = read_variables("./test/coin/graph.variables", fg, 18);
 	EXPECT_EQ(nvars, 18);
 	EXPECT_EQ(fg.c_nvar, 18);
 	EXPECT_EQ(fg.n_evid, 9);
@@ -37,7 +37,7 @@ TEST(BinaryParserTest, read_variables) {
 // test read_factors
 TEST(BinaryParserTest, read_factors) {
 	dd::FactorGraph fg(18, 18, 1, 18);
-	int nfactors = read_factors("./test/coin/graph.factors", fg);
+	int nfactors = read_factors("./test/coin/graph.factors", fg, 18, 18);
 	EXPECT_EQ(nfactors, 18);
 	EXPECT_EQ(fg.c_nfactor, 18);
 	EXPECT_EQ(fg.factors[0].id, 0);
@@ -52,7 +52,7 @@ TEST(BinaryParserTest, read_factors) {
 // test read_weights
 TEST(BinaryParserTest, read_weights) {
 	dd::FactorGraph fg(1, 1, 1, 1);
-	int nweights = read_weights("./test/coin/graph.weights", fg);
+	int nweights = read_weights("./test/coin/graph.weights", fg, 1);
 	EXPECT_EQ(nweights, 1);
 	EXPECT_EQ(fg.c_nweight, 1);
 	EXPECT_EQ(fg.weights[0].id, 0);
@@ -63,7 +63,7 @@ TEST(BinaryParserTest, read_weights) {
 // test read_edges
 TEST(BinaryParserTest, read_edges) {
 	dd::FactorGraph fg(18, 18, 1, 18);
-	int nedges = read_edges_inc("./test/coin/graph.edges", fg);
+	int nedges = read_edges_inc("./test/coin/graph.edges", fg, 18);
 	EXPECT_EQ(nedges, 18);
 	EXPECT_EQ(fg.factors[1].tmp_variables[0].vid, 1);
 	EXPECT_EQ(fg.factors[1].tmp_variables[0].n_position, 0);
