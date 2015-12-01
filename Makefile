@@ -41,6 +41,7 @@ SOURCES += src/main.cpp
 SOURCES += src/dstruct/factor_graph/weight.cpp
 SOURCES += src/dstruct/factor_graph/variable.cpp
 SOURCES += src/dstruct/factor_graph/factor.cpp
+SOURCES += src/dstruct/factor_graph/edge.cpp
 SOURCES += src/dstruct/factor_graph/factor_graph.cpp
 SOURCES += src/dstruct/factor_graph/inference_result.cpp
 SOURCES += src/app/gibbs/gibbs_sampling.cpp

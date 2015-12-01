@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <memory>
 #include "io/binary_parser.h"
 #include "dstruct/factor_graph/factor_graph.h"
 #include "dstruct/factor_graph/factor.h"
@@ -24,13 +25,13 @@ bool dd::FactorGraph::is_usable(){
 
 dd::FactorGraph::FactorGraph(long _n_var, long _n_factor, long _n_weight, long _n_edge) : 
   n_var(_n_var), n_factor(_n_factor), n_weight(_n_weight), n_edge(_n_edge),
-  c_nvar(0), c_nfactor(0), c_nweight(0), n_evid(0), n_query(0),
+  c_nvar(0), c_nfactor(0), c_nweight(0), c_nedge(0), n_evid(0), n_query(0),
   variables(new Variable[_n_var]),
   factors(new Factor[_n_factor]),
   weights(new Weight[_n_weight]),
+  edges(new Edge[_n_edge]),
   compact_factors(new CompactFactor[_n_edge]),
   compact_factors_weightids(new int[_n_edge]),
-  factor_ids(new long[_n_edge]),
   vifs(new VariableInFactor[_n_edge]),
   infrs(new InferenceResult(_n_var, _n_weight)),
   sorted(false),
@@ -42,7 +43,6 @@ void dd::FactorGraph::copy_from(const FactorGraph * const p_other_fg){
   memcpy(variables, p_other_fg->variables, sizeof(Variable)*n_var);
   memcpy(factors, p_other_fg->factors, sizeof(Factor)*n_factor);
   memcpy(weights, p_other_fg->weights, sizeof(Weight)*n_weight);
-  memcpy(factor_ids, p_other_fg->factor_ids, sizeof(long)*n_edge);
   memcpy(vifs, p_other_fg->vifs, sizeof(VariableInFactor)*n_edge);
 
   memcpy(compact_factors, p_other_fg->compact_factors, sizeof(CompactFactor)*n_edge);
@@ -238,60 +238,90 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet, int inc, 
     if (!is_quiet) {
       std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
     }
-  }
 
-  // load active variables
-  std::string active_vars = cmd.original_folder->getValue() + "/active.variables";
-  long long active_id;
-  std::ifstream file;
-  file.open(active_vars.c_str(), ios::in | ios::binary);
-  while (file.good()) {
-    if(!file.read((char *)&active_id, 8)) break;
-    active_id = bswap_64(active_id);
-    this->variables[active_id].isactive = true;
-  }
+    // load active variables
+    std::string active_vars = cmd.original_folder->getValue() + "/active.variables";
+    long long active_id;
+    std::ifstream file;
+    file.open(active_vars.c_str(), ios::in | ios::binary);
+    while (file.good()) {
+      if(!file.read((char *)&active_id, 8)) break;
+      active_id = bswap_64(active_id);
+      this->variables[active_id].isactive = true;
+    }
 
-  // a slow, but good enough algorithm for connected components
-  std::string useful_training = cmd.original_folder->getValue() + "/mat_components_hasevids";
-  std::ofstream fout2(useful_training.c_str());
-  long long component_id = -1;
-  for(long long vid=0;vid < n_var;vid++){
-    const Variable & var = this->variables[vid];
-    if(var.component_id != -1) continue;
-    component_id ++;
-    bool isuseful_for_training = false;
-    std::vector<long long> vars_to_work_on;
-    vars_to_work_on.push_back(vid);
-    long long var_to_work_on;
-    while(vars_to_work_on.size() != 0){
-      var_to_work_on = vars_to_work_on.back();
-      vars_to_work_on.pop_back();
-      this->variables[var_to_work_on].component_id = component_id;
-      if(this->variables[var_to_work_on].is_evid){
-        isuseful_for_training = true;
-      }
-      for(long long fid : this->variables[var_to_work_on].tmp_factor_ids){
-        const Factor & factor = this->factors[fid];
-        for(const VariableInFactor & next_var : factor.tmp_variables){
-          if(this->variables[next_var.vid].component_id != -1){
-            assert(this->variables[next_var.vid].component_id == component_id);
-          }else{
-            this->variables[next_var.vid].component_id = component_id;
-            vars_to_work_on.push_back(next_var.vid);
+    // a slow, but good enough algorithm for connected components
+    std::string useful_training = cmd.original_folder->getValue() + "/mat_components_hasevids";
+    std::ofstream fout2(useful_training.c_str());
+
+    std::unique_ptr<long[]> prev_vid(new long[n_edge]);
+    std::unique_ptr<long[]> last_vid(new long[n_var]);
+    std::unique_ptr<long[]> prev_fid(new long[n_edge]);
+    std::unique_ptr<long[]> last_fid(new long[n_factor]);
+
+    // initial last_vid, -1 represents null
+    for (long i = 0; i < n_var; i++) {
+      last_vid[i] = -1;
+    }
+
+    // initial last_fid, -1 represents null
+    for (long i = 0; i < n_factor; i++) {
+      last_fid[i] = -1;
+    }
+
+    // build compact adjacency list
+    for (long i = 0; i < n_edge; i++) {
+      Edge & edge = edges[i];
+      prev_vid[i] = last_vid[edge.variable_id];
+      last_vid[edge.variable_id] = i;
+      prev_fid[i] = last_fid[edge.factor_id];
+      last_fid[edge.factor_id] = i;
+    }
+
+    long long component_id = -1;
+    for(long long vid=0;vid < n_var;vid++){
+      const Variable & var = this->variables[vid];
+      if(var.component_id != -1) continue;
+      component_id ++;
+      bool isuseful_for_training = false;
+      std::vector<long long> vars_to_work_on;
+      vars_to_work_on.push_back(vid);
+      long long var_to_work_on;
+      while(vars_to_work_on.size() != 0){
+        var_to_work_on = vars_to_work_on.back();
+        vars_to_work_on.pop_back();
+        this->variables[var_to_work_on].component_id = component_id;
+        if(this->variables[var_to_work_on].is_evid){
+          isuseful_for_training = true;
+        }
+        long long cur = last_vid[var_to_work_on];
+        while (cur >= 0) {
+          long long cur1 = last_fid[edges[cur].factor_id];
+          while (cur1 >= 0) {
+            long long vid = edges[cur1].variable_id;
+            if(this->variables[vid].component_id != -1){
+              assert(this->variables[vid].component_id == component_id);
+            }else{
+              this->variables[vid].component_id = component_id;
+              vars_to_work_on.push_back(vid);
+            }
+            cur1 = prev_fid[cur1];
           }
+          cur = prev_vid[cur];
         }
       }
+      fout2 << component_id << " " << isuseful_for_training << std::endl;
     }
-    fout2 << component_id << " " << isuseful_for_training << std::endl;
-  }
-  std::string component_file = cmd.original_folder->getValue() + "/mat_active_components";
-  std::ofstream fout(component_file.c_str());
-  for(long long vid=0;vid < n_var;vid++){
-    const Variable & var = this->variables[vid];
-    assert(var.component_id != -1);
-    if(var.isactive){
-      fout << var.id << " " << var.component_id << std::endl;
+    std::string component_file = cmd.original_folder->getValue() + "/mat_active_components";
+    std::ofstream fout(component_file.c_str());
+    for(long long vid=0;vid < n_var;vid++){
+      const Variable & var = this->variables[vid];
+      assert(var.component_id != -1);
+      if(var.isactive){
+        fout << var.id << " " << var.component_id << std::endl;
+      }
     }
+
   }
 
   // construct edge-based store
@@ -312,7 +342,6 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet, int inc, 
     }
     fin.close();
   }
-
 }
 
 bool dd::compare_position(const VariableInFactor& x, const VariableInFactor& y) {
@@ -322,16 +351,57 @@ bool dd::compare_position(const VariableInFactor& x, const VariableInFactor& y) 
 void dd::FactorGraph::organize_graph_by_edge() {
   // number of edges
   c_edge = 0;
-  // put variables into the edge-based variable array vifs
-  for(long i=0;i<n_factor;i++){
+
+  // use compact adjacency list to build factor graph
+  // prev_vid and prev_fid are used to store the nearest previous edge with
+  // the same variable id or factor id in the edge list
+  // last_vid and last_fid are used to store the last edge index in the edge
+  // list, and the index in last_vid or last_fid is corresponding to the
+  // variable id or factor id
+  std::unique_ptr<long[]> prev_vid(new long[n_edge]);
+  std::unique_ptr<long[]> last_vid(new long[n_var]);
+  std::unique_ptr<long[]> prev_fid(new long[n_edge]);
+  std::unique_ptr<long[]> last_fid(new long[n_factor]);
+
+  // initial last_vid, -1 represents null
+  for (long i = 0; i < n_var; i++) {
+    last_vid[i] = -1;
+  }
+
+  // initial last_fid, -1 represents null
+  for (long i = 0; i < n_factor; i++) {
+    last_fid[i] = -1;
+  }
+
+  // build compact adjacency list
+  for (long i = 0; i < n_edge; i++) {
+    Edge & edge = edges[i];
+    prev_vid[i] = last_vid[edge.variable_id];
+    last_vid[edge.variable_id] = i;
+    prev_fid[i] = last_fid[edge.factor_id];
+    last_fid[edge.factor_id] = i;
+  }
+
+  for (long i = 0; i < n_factor; i++) {
     Factor & factor = factors[i];
     factor.n_start_i_vif = c_edge;
-    // sort variables in factor by position in factor
-    std::sort(factor.tmp_variables.begin(), factor.tmp_variables.end(), dd::compare_position);
-    for(const VariableInFactor & vif : factor.tmp_variables){
-      vifs[c_edge] = vif;
-      c_edge ++;
+    long start_idx = c_edge;
+    // find all edges corresponding to the factor, cur is index of last one 
+    // in edge compact adjacency list
+    long cur = last_fid[factor.id];
+    while (cur >= 0) {
+      Edge & edge = edges[cur];
+      if (variables[edge.variable_id].domain_type == DTYPE_BOOLEAN) {
+          vifs[c_edge] = dd::VariableInFactor(edge.variable_id, variables[edge.variable_id].upper_bound, edge.variable_id, edge.position, edge.ispositive);
+      } else {
+          vifs[c_edge] = dd::VariableInFactor(edge.variable_id, edge.position, edge.ispositive, edge.equal_predicate);
+      }
+      c_edge++;
+      // use prev_fid to find the previous edge in the list
+      cur = prev_fid[cur];
     }
+    // sort variables in factor by position in factor
+    std::sort(vifs + start_idx, vifs + c_edge, dd::compare_position);
   }
 
   c_edge = 0;
@@ -339,22 +409,29 @@ void dd::FactorGraph::organize_graph_by_edge() {
   // for each variable, put the factors into factor_dups
   for(long i=0;i<n_var;i++){
     Variable & variable = variables[i];
-    variable.n_factors = variable.tmp_factor_ids.size();  // no edge count any more
     
     variable.n_start_i_factors = c_edge;
     if(variable.domain_type == DTYPE_MULTINOMIAL){
       variable.n_start_i_tally = ntallies;
       ntallies += variable.upper_bound - variable.lower_bound + 1;
     }
-    for(const long & fid : variable.tmp_factor_ids){
-      factor_ids[c_edge] = fid;
+    long cnt = 0;
+    // find all edges corresponding to the variable, cur is index of last one
+    // in edge compact adjacency list
+    long cur = last_vid[variable.id];
+    while (cur >= 0) {
+      long long & fid = edges[cur].factor_id;
       compact_factors[c_edge].id = factors[fid].id;
       compact_factors[c_edge].func_id = factors[fid].func_id;
       compact_factors[c_edge].n_variables = factors[fid].n_variables;
       compact_factors[c_edge].n_start_i_vif = factors[fid].n_start_i_vif;
       compact_factors_weightids[c_edge] = factors[fid].weight_id;
+      cnt ++;
       c_edge ++;
+      // use prev_fid to find the previous edge in the list
+      cur = prev_vid[cur];
     }
+    variable.n_factors = cnt;
   }
 }
 
@@ -376,9 +453,3 @@ void dd::FactorGraph::safety_check(){
   }
   this->safety_check_passed = true;
 }
-
-
-
-
-
-

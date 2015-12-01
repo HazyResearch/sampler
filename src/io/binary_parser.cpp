@@ -191,17 +191,10 @@ long long read_factors(string filename, dd::FactorGraph &fg, long long n_factor,
                 assert(false);
             }
 
-            // add variables to factors
-            if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-                fg.factors[fg.c_nfactor].tmp_variables.push_back(
-                    dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-            } else {
-                fg.factors[fg.c_nfactor].tmp_variables.push_back(
-                    dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-            }
-            fg.variables[variable_id].tmp_factor_ids.push_back(fg.c_nfactor);
+            fg.edges[fg.c_nedge] = dd::Edge(variable_id, fg.c_nfactor, position, ispositive, equal_predicate);
+            fg.c_nedge++;
         }
-        fg.c_nfactor ++;
+        fg.c_nfactor++;
     }
     munmap(memory_map, size);
     close(fd);
@@ -291,16 +284,8 @@ long long read_edges_inc(string filename, dd::FactorGraph &fg, long long n_edge)
           assert(false);
         }
 
-        // add variables to factors
-        if (fg.variables[variable_id].domain_type == DTYPE_BOOLEAN) {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, fg.variables[variable_id].upper_bound, variable_id, position, ispositive));
-        } else {
-            fg.factors[factor_id].tmp_variables.push_back(
-                dd::VariableInFactor(variable_id, position, ispositive, equal_predicate));
-        }
-        fg.variables[variable_id].tmp_factor_ids.push_back(factor_id);
-
+        fg.edges[fg.c_nedge] = dd::Edge(variable_id, factor_id, position, ispositive, equal_predicate);
+        fg.c_nedge++;
     }
     munmap(memory_map, size);
     close(fd);

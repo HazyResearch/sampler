@@ -6,6 +6,7 @@
 #include "dstruct/factor_graph/variable.h"
 #include "dstruct/factor_graph/factor.h"
 #include "dstruct/factor_graph/weight.h"
+#include "dstruct/factor_graph/edge.h"
 #include "dstruct/factor_graph/inference_result.h"
 
 #include <xmmintrin.h>
@@ -43,6 +44,7 @@ namespace dd{
     long c_nvar;
     long c_nfactor;
     long c_nweight;
+    long c_nedge;
     long c_edge;
 
     // number of evidence variables, query variables
@@ -56,6 +58,7 @@ namespace dd{
     Variable * const variables;
     Factor * const factors;
     Weight * const weights;
+    Edge * const edges;
 
     float * old_weight_values;
 
@@ -66,7 +69,6 @@ namespace dd{
     // given factors faster. 
     CompactFactor * const compact_factors;
     int * const compact_factors_weightids;
-    long * const factor_ids;
     VariableInFactor * const vifs;
 
     // pointer to inference result

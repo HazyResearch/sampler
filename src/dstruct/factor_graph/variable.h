@@ -39,8 +39,6 @@ namespace dd{
     // n_start_i_tally is the start position for the variable values in the array
     long n_start_i_tally;
 
-    std::vector<long> tmp_factor_ids; // factor ids the variable connects to
-
     bool isactive;
 
     long long component_id;
