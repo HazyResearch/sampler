@@ -255,6 +255,7 @@ namespace dd{
       long vid = imgids[i];
 
       Variable & variable = this->p_fg->variables[vid];
+      assert(!variable.is_observation);
 
       // save the message
       for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {

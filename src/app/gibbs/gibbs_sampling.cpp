@@ -406,7 +406,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, int inc)
     int ct = 0;
     for(long i=0;i<factorgraphs[0].n_var;i++){
       const Variable & variable = factorgraphs[0].variables[i];
-      if(variable.is_evid == false || sample_evidence){
+      if ((variable.is_evid == false || sample_evidence) && !variable.is_observation) {
         ct ++;
         std::cout << "   " << variable.id << " EXP=" 
                   << agg_means[variable.id]/agg_nsamples[variable.id] << "  NSAMPLE=" 
@@ -446,7 +446,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, int inc)
   std::ofstream fout_text(filename_text.c_str());
   for(long i=0;i<factorgraphs[0].n_var;i++){
     const Variable & variable = factorgraphs[0].variables[i];
-    if(variable.is_evid == true && !sample_evidence){
+    if ((variable.is_evid == true && !sample_evidence) || variable.is_observation) {
       continue;
     }
     
