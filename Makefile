@@ -97,9 +97,9 @@ dep:
 	make install
 	# libsodium
 	cd lib;\
-	wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.1.tar.gz;\
-	tar xf libsodium-1.0.1.tar.gz;\
-	cd libsodium-1.0.1;\
+	wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.2.tar.gz;\
+	tar xf libsodium-1.0.2.tar.gz;\
+	cd libsodium-1.0.2;\
 	./configure --prefix=`pwd`/../libsodium;\
 	make;\
 	make install
