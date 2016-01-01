@@ -248,4 +248,29 @@ namespace dd{
 	  	else return 0.0;
 	  }
 	}
+
+	// LR function
+	inline double dd::CompactFactor::_potential_lr(
+	  const VariableInFactor * const vifs,
+	  const VariableValue * const var_values,
+	  const VariableIndex & vid,
+	  const VariableValue & proposal) const {
+
+	  /* Iterate over the factor variables */
+	  // NOTE for LR, it should always connect to one variable and one feature
+	  assert(n_variables == 2);
+	  double ans = 0;
+	  bool satisfied = false;
+	  for(long i_vif=n_start_i_vif; i_vif<n_start_i_vif+n_variables; i_vif++){
+	    const VariableInFactor & vif = vifs[i_vif];
+	    // std::cerr << "ob: " << vif.is_observation << std::endl;
+	    if (vif.is_observation) {
+	    	ans = var_values[vif.vid];
+	    } else {
+	    	satisfied = is_variable_satisfied(vif, vid, var_values, proposal);
+	    }
+	  }
+	  return satisfied ? ans : 0;
+
+	}
 }

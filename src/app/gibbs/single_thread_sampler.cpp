@@ -259,7 +259,7 @@ namespace dd{
 
       // save the message
       for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
-        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - variable.lower_bound] = data[i * dim + label];
+        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - (int)variable.lower_bound] = data[i * dim + label];
       }
 
 
@@ -283,7 +283,7 @@ namespace dd{
         this->p_fg->update_weight(variable);
 
         // calculate loss
-        double prob = exp(data[i * dim + variable.assignment_evid]) / (exp(data[i * dim]) + exp(data[i * dim + 1]));
+        double prob = exp(data[i * dim + (int)variable.assignment_evid]) / (exp(data[i * dim]) + exp(data[i * dim + 1]));
         // double sample_prob = exp(data[i * dim + 1]) / (exp(data[i * dim]) + exp(data[i * dim + 1]));
         // printf("sample prob = %f rng = %f, sample = %d\n", sample_prob, (*this->p_rand_obj_buf), sample_free);
         // printf("vid = %d data = %f %f evid = %d prob = %f \n",
@@ -291,7 +291,7 @@ namespace dd{
         loss += -log(prob);
 
         for (int label = 0; label < 2; label++) {
-          data[i * dim + label] = -(variable.assignment_evid == label) + (sample_free == label);
+          data[i * dim + label] = -((int)variable.assignment_evid == label) + (sample_free == label);
         }
 
       } else if (variable.domain_type == DTYPE_MULTINOMIAL) { // multinomial
@@ -341,14 +341,14 @@ namespace dd{
         // }
 
         // loss
-        loss += -(data[i * dim + variable.assignment_evid] - sum);
+        loss += -(data[i * dim + (int)variable.assignment_evid] - sum);
 
         // gradient
         for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
           samples_free[label] /= n_samples;
         }
         for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
-          data[i * dim + label] = -(variable.assignment_evid == label) + samples_free[label];
+          data[i * dim + label] = -((int)variable.assignment_evid == label) + samples_free[label];
         }
 
         // for (int j = 0; j <= variable.upper_bound; j++) {
@@ -376,7 +376,7 @@ namespace dd{
 
       // save the message
       for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
-        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - variable.lower_bound] = data[i * dim + label];
+        p_fg->infrs->cnn_ips[variable.n_start_i_tally + label - (int)variable.lower_bound] = data[i * dim + label];
       }
 
     }

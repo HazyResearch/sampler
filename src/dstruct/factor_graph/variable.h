@@ -10,7 +10,7 @@
 
 namespace dd{
 
-  typedef int VariableValue;
+  typedef double VariableValue;
   typedef long VariableIndex;
   typedef long FactorIndex;
 
@@ -74,6 +74,7 @@ namespace dd{
     VariableValue equal_to; 
 
     int dimension;
+    bool is_observation;
 
     /**
      * Returns whether the variable's predicate is satisfied using the given value

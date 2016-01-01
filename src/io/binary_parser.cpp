@@ -113,6 +113,9 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         } else if (type == 1) {
             type_const  = DTYPE_MULTINOMIAL;
             upper_bound = cardinality - 1;
+        } else if (type == 2) {
+            type_const  = DTYPE_REAL;
+            upper_bound = 0;
         } else {
             cerr << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
             exit(1);

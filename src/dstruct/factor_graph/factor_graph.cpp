@@ -81,6 +81,7 @@ long dd::FactorGraph::get_multinomial_weight_id(const VariableValue *assignments
   // for each variable in the factor
   for (long i = fs.n_start_i_vif; i < fs.n_start_i_vif + fs.n_variables; i++) {
     const VariableInFactor & vif = vifs[i];
+    if (vif.is_observation) continue;
     if (vif.vid == vid) {
       weight_offset = weight_offset * (variables[vif.vid].upper_bound+1) + proposal;
     } else {
@@ -205,6 +206,7 @@ void dd::FactorGraph::load(const CmdParser & cmd, const bool is_quiet, int inc){
   if (!is_quiet) {
     std::cout << "LOADED EDGES: #" << n_loaded << std::endl;
   }
+  this->handle_observation();
 
   // load cnn configs
   if (cmd.fusion_mode->getValue()) {
@@ -306,6 +308,14 @@ public:
     return left.id < right.id;
   }
 };
+
+void dd::FactorGraph::handle_observation() {
+  for (long i = 0; i < n_factor; i++) {
+    for (VariableInFactor & vif : factors[i].tmp_variables) {
+      vif.is_observation = variables[vif.vid].is_observation;
+    }
+  }
+}
 
 void dd::FactorGraph::sort_by_id() {
   // sort variables, factors, and weights by id

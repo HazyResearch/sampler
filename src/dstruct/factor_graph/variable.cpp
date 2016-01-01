@@ -60,5 +60,6 @@ namespace dd{
       this->n_position = _n_position;
       this->is_positive = _is_positive;
       this->equal_to = _equal_to;
+      this->is_observation = false;
     }
 }
