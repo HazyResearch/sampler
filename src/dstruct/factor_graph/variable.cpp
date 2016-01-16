@@ -8,12 +8,13 @@ namespace dd{
              const bool & _is_evid, const VariableValue & _lower_bound,
              const VariableValue & _upper_bound, const VariableValue & _init_value, 
              const VariableValue & _current_value, const int & _n_factors,
-             bool is_observation){
+             bool is_observation, bool is_censored) {
 
       this->id = _id;
       this->domain_type = _domain_type;
       this->is_evid = _is_evid;
       this->is_observation = is_observation;
+      this->is_censored = is_censored;
       this->lower_bound = _lower_bound;
       this->upper_bound = _upper_bound;
       this->assignment_evid = _init_value;

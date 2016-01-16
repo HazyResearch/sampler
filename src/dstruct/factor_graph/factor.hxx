@@ -273,4 +273,25 @@ namespace dd{
 	  return satisfied ? ans : 0;
 
 	}
+
+	// MTLR function
+	inline double dd::CompactFactor::_potential_mtlr(
+	  const VariableInFactor * const vifs,
+	  const VariableValue * const var_values,
+	  const VariableIndex & vid,
+	  const VariableValue & proposal) const {
+
+	  /* Iterate over the factor variables */
+	  // NOTE for LR, it should always connect to one variable and one feature
+	  assert(n_variables == 2);
+	  double ans = 0;
+	  for(long i_vif=n_start_i_vif; i_vif<n_start_i_vif+n_variables; i_vif++){
+	    const VariableInFactor & vif = vifs[i_vif];
+	    if (vif.is_observation) {
+	    	ans = var_values[vif.vid];
+	    }
+	  }
+	  return ans;
+
+	}
 }

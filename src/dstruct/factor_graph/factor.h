@@ -26,7 +26,8 @@ namespace dd{
     FUNC_LINEAR     = 7,
     FUNC_RATIO      = 8,
     FUNC_LOGICAL    = 9,
-    FUNC_LR         = 10
+    FUNC_LR         = 10,
+    FUNC_MTLR       = 12
   };
 
   /**
@@ -131,6 +132,11 @@ namespace dd{
                                    const VariableValue * const var_values, 
                                    const VariableIndex &, const VariableValue &) const;
 
+    // mtlr function
+    inline double _potential_mtlr(const VariableInFactor * const vifs,
+                                   const VariableValue * const var_values, 
+                                   const VariableIndex &, const VariableValue &) const;
+
 
     /** 
      * Returns potential of the factor. 
@@ -162,6 +168,7 @@ namespace dd{
         case FUNC_LOGICAL     :return _potential_logical(vifs, var_values, vid, proposal);
         case FUNC_ONEISTRUE   : return _potential_oneistrue(vifs, var_values, vid, proposal);
         case FUNC_LR          : return _potential_lr(vifs, var_values, vid, proposal); 
+        case FUNC_MTLR        : return _potential_mtlr(vifs, var_values, vid, proposal);
         std::cout << "Unsupported Factor Function ID= " << func_id << std::endl;
         assert(false);
       }

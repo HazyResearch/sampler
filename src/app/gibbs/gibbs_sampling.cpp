@@ -228,7 +228,7 @@ void dd::GibbsSampling::learn(const int & n_epoch, const int & n_sample_per_epoc
             sockets[i].send(requests[i]);
             batch_counts[i] += msg->batch;
           } else if (msg->msg_type == REQUEST_ACCURACY) {
-            // save messages, which will be ued later in inference
+            // save messages, which will be used later in inference
             single_node_samplers[0].save_fusion_message(msg);
             memcpy((void *)requests[i].data(), msg, msg->size());
             sockets[i].send(requests[i]);
@@ -413,7 +413,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, int inc)
                   << agg_nsamples[variable.id] << std::endl;
 
         if(variable.domain_type != DTYPE_BOOLEAN){
-          if(variable.domain_type == DTYPE_MULTINOMIAL){
+          if(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) {
             for(int j=0;j<=variable.upper_bound;j++){
               std::cout << "        @ " << j << " -> " << 1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id] << std::endl;
             }
@@ -451,7 +451,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet, int inc)
     }
     
     if(variable.domain_type != DTYPE_BOOLEAN){
-      if(variable.domain_type == DTYPE_MULTINOMIAL){
+      if(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) {
         for(int j=0;j<=variable.upper_bound;j++){
           
           fout_text << variable.id << " " << j << " " << (1.0*multinomial_tallies[variable.n_start_i_tally + j]/agg_nsamples[variable.id]) << std::endl;

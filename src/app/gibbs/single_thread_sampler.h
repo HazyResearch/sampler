@@ -90,6 +90,8 @@ namespace dd{
 
     void save_fusion_message(int nelem, int batch, int* imgids, float * data);
 
+    // sample a single variable
+    double draw_sample(long vid, bool is_free);
   };
 
 }

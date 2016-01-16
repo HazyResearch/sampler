@@ -116,16 +116,20 @@ long long read_variables(string filename, dd::FactorGraph &fg)
         } else if (type == 2) {
             type_const  = DTYPE_REAL;
             upper_bound = 0;
+        } else if (type == 3) {
+            type_const = DTYPE_CENSORED_MULTINOMIAL;
+            upper_bound = cardinality - 1;
         } else {
             cerr << "[ERROR] Only Boolean and Multinomial variables are supported now!" << endl;
             exit(1);
         }
         bool is_evidence    = isevidence >= 1;
         bool is_observation = isevidence == 2;
+        bool is_censored    = isevidence == 3;
         double init_value   = is_evidence ? initial_value : 0;
 
         fg.variables[fg.c_nvar] = dd::Variable(id, type_const, is_evidence, 0, upper_bound,
-            init_value, init_value, edge_count, is_observation);
+            init_value, init_value, edge_count, is_observation, is_censored);
         fg.c_nvar++;
         if (is_evidence) {
             fg.n_evid++;

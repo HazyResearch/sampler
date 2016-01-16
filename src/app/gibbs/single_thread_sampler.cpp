@@ -81,55 +81,21 @@ namespace dd{
 
         this->p_fg->update_weight(variable);
         
-    }else if(variable.domain_type == DTYPE_MULTINOMIAL){ // multinomial
+    }else if(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) { // multinomial
 
       // varlen_potential_buffer contains potential for each proposals
       while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
         varlen_potential_buffer.push_back(0.0);
       }
 
-      if(variable.is_evid == false){
-        sum = -100000.0;
-        acc = 0.0;
-        multi_proposal = -1;
-        
-        // calculate potential for each proposal
-        for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
-          varlen_potential_buffer[propose] = p_fg->template potential<false>(variable, propose);
-          sum = logadd(sum, varlen_potential_buffer[propose]);
-        }
-
-        // flip a coin
-        *this->p_rand_obj_buf = erand48(this->p_rand_seed);
-        for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
-          acc += exp(varlen_potential_buffer[propose]-sum);
-          if(*this->p_rand_obj_buf <= acc){
-            multi_proposal = propose;
-            break;
-          }
-        }
-        assert(multi_proposal != -1);
-        p_fg->update_evid(variable, multi_proposal);
+      if(variable.is_evid == false ||
+        (variable.domain_type == DTYPE_CENSORED_MULTINOMIAL && variable.is_censored)) {
+        double proposal = draw_sample(vid, false);
+        p_fg->update_evid(variable, proposal);
       }
 
-      sum = -100000.0;
-      acc = 0.0;
-      multi_proposal = -1;
-      for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
-        varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
-        sum = logadd(sum, varlen_potential_buffer[propose]);
-      }
-
-      *this->p_rand_obj_buf = erand48(this->p_rand_seed);
-      for(int propose=variable.lower_bound; propose <= variable.upper_bound; propose++){
-        acc += exp(varlen_potential_buffer[propose]-sum);
-        if(*this->p_rand_obj_buf <= acc){
-          multi_proposal = propose;
-          break;
-        }
-      }
-      assert(multi_proposal != -1);
-      p_fg->template update<true>(variable, multi_proposal);
+      double proposal = draw_sample(vid, true);
+      p_fg->template update<true>(variable, proposal);
 
       this->p_fg->update_weight(variable);
 
@@ -203,7 +169,7 @@ namespace dd{
 
         }
 
-      }else if(variable.domain_type == DTYPE_MULTINOMIAL){
+      }else if(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) {
 
         while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
           varlen_potential_buffer.push_back(0.0);
@@ -212,25 +178,8 @@ namespace dd{
         // printf("sample inf %f\n", p_fg->infrs->cnn_ips[variable.n_start_i_tally]);
 
         if(variable.is_evid == false){
-          sum = -100000.0;
-          acc = 0.0;
-          multi_proposal = -1;
-          for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
-            varlen_potential_buffer[propose] = p_fg->template potential<false>(variable, propose);
-            sum = logadd(sum, varlen_potential_buffer[propose]);
-            // printf("vid = %ld, pot = %f\n", variable.id, varlen_potential_buffer[propose]);
-          }
-
-          *this->p_rand_obj_buf = erand48(this->p_rand_seed);
-          for(int propose=variable.lower_bound;propose <= variable.upper_bound; propose++){
-            acc += exp(varlen_potential_buffer[propose]-sum);
-            if(*this->p_rand_obj_buf <= acc){
-              multi_proposal = propose;
-              break;
-            }
-          }
-          assert(multi_proposal != -1);
-          p_fg->template update<false>(variable, multi_proposal);
+          double proposal = draw_sample(vid, false);
+          p_fg->template update<false>(variable, proposal);
         }
 
       }else{
@@ -294,7 +243,7 @@ namespace dd{
           data[i * dim + label] = -((int)variable.assignment_evid == label) + (sample_free == label);
         }
 
-      } else if (variable.domain_type == DTYPE_MULTINOMIAL) { // multinomial
+      } else if (variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) { // multinomial
 
         // varlen_potential_buffer contains potential for each proposals
         while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
@@ -303,32 +252,20 @@ namespace dd{
 
         int n_samples = 100;
 
+        std::vector<double> samples_evid(variable.upper_bound - variable.lower_bound + 1, 0);
+
+        double proposal = 0;
+        for (int i = 0; i < n_samples; i++) {
+          proposal = draw_sample(vid, false);
+          samples_evid[(int)proposal] += 1;
+        }
+        p_fg->update_evid(variable, proposal);
+
         std::vector<double> samples_free(variable.upper_bound - variable.lower_bound + 1, 0);
 
         for (int i = 0; i < n_samples; i++) {
-
-          sum = -100000.0;
-          acc = 0.0;
-          multi_proposal = -1;
-          for (int propose = variable.lower_bound; propose <= variable.upper_bound; propose++) {
-            // varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose) + data[i * dim + propose];
-            varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
-            sum = logadd(sum, varlen_potential_buffer[propose]);
-          }
-
-          *this->p_rand_obj_buf = erand48(this->p_rand_seed);
-          for(int propose=variable.lower_bound; propose <= variable.upper_bound; propose++){
-            // printf("vid = %d, pot_buf = %f\n", vid, varlen_potential_buffer[propose]);
-            acc += exp(varlen_potential_buffer[propose]-sum);
-            if(*this->p_rand_obj_buf <= acc){
-              multi_proposal = propose;
-              break;
-            }
-          }
-          assert(multi_proposal != -1);
-
-          samples_free[multi_proposal] += 1;
-
+          proposal = draw_sample(vid, true);
+          samples_free[(int)proposal] += 1;
         }
 
         p_fg->template update<true>(variable, multi_proposal);
@@ -341,14 +278,23 @@ namespace dd{
         // }
 
         // loss
-        loss += -(data[i * dim + (int)variable.assignment_evid] - sum);
+        if (variable.is_censored) {
+          double prob = 0;
+          for (int j = variable.assignment_evid; j <= variable.upper_bound; j++) {
+            prob += exp(data[i * dim + j] - sum);
+          }
+          loss += -log(prob);
+        } else {
+          loss += -(data[i * dim + (int)variable.assignment_evid] - sum);
+        }
 
         // gradient
         for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
+          samples_evid[label] /= n_samples;
           samples_free[label] /= n_samples;
         }
         for (int label = variable.lower_bound; label <= variable.upper_bound; label++) {
-          data[i * dim + label] = -((int)variable.assignment_evid == label) + samples_free[label];
+          data[i * dim + label] = -samples_evid[label] + samples_free[label];
         }
 
         // for (int j = 0; j <= variable.upper_bound; j++) {
@@ -380,6 +326,49 @@ namespace dd{
       }
 
     }
+  }
+
+  double dd::SingleThreadSampler::draw_sample(long vid, bool is_free) {   
+    Variable & variable = this->p_fg->variables[vid];
+    // TODO support other types of variables as well
+    assert(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL);
+
+    while(variable.upper_bound >= (int)varlen_potential_buffer.size()){
+      varlen_potential_buffer.push_back(0.0);
+    }
+
+    sum = -100000.0;
+    acc = 0.0;
+    multi_proposal = -1;
+
+    int lower_bound = variable.is_censored ? variable.assignment_evid : variable.lower_bound;
+
+    for (int propose = lower_bound; propose <= variable.upper_bound; propose++) {
+      if (is_free) {
+        varlen_potential_buffer[propose] = p_fg->template potential<true>(variable, propose);
+      } else {
+        varlen_potential_buffer[propose] = p_fg->template potential<false>(variable, propose);
+      }
+      sum = logadd(sum, varlen_potential_buffer[propose]);
+    }
+
+    *this->p_rand_obj_buf = erand48(this->p_rand_seed);
+    for (int propose = lower_bound; propose <= variable.upper_bound; propose++) {
+      // printf("vid = %d, pot_buf = %f\n", vid, varlen_potential_buffer[propose]);
+      acc += exp(varlen_potential_buffer[propose]-sum);
+      if (*this->p_rand_obj_buf <= acc){
+        multi_proposal = propose;
+        break;
+      }
+    }
+
+    if (!variable.is_censored && !is_free && variable.is_evid)
+      multi_proposal = variable.assignment_evid;
+
+    assert(multi_proposal != -1);
+
+    return multi_proposal;
+
   }
 
 

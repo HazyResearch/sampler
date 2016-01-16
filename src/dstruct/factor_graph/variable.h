@@ -7,6 +7,7 @@
 #define DTYPE_BOOLEAN     0x00
 #define DTYPE_REAL        0x01
 #define DTYPE_MULTINOMIAL 0x04
+#define DTYPE_CENSORED_MULTINOMIAL 0x02
 
 namespace dd{
 
@@ -24,6 +25,7 @@ namespace dd{
                                     // DTYPE_MULTINOMIAL
     bool is_evid;                   // whether the variable is evidence
     bool is_observation;            // observed variable (fixed)
+    bool is_censored;               // cencsored variable
     VariableValue lower_bound;      // lower bound
     VariableValue upper_bound;      // upper bound
     
@@ -59,7 +61,7 @@ namespace dd{
              const bool & _is_evid, const VariableValue & _lower_bound,
              const VariableValue & _upper_bound, const VariableValue & _init_value, 
              const VariableValue & _current_value, const int & _n_factors,
-             bool is_observation);
+             bool is_observation, bool is_censored);
   };
 
   /**

@@ -111,7 +111,7 @@ void dd::FactorGraph::update_weight(const Variable & variable){
         infrs->weight_values[ws[i]] += 
           stepsize * (this->template potential<false>(fs[i]) - this->template potential<true>(fs[i]));
       }
-    } else if (variable.domain_type == DTYPE_MULTINOMIAL) {
+    } else if (variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) {
       // two weights need to be updated
       // sample with evidence fixed, I0, with corresponding weight w1
       // sample without evidence unfixed, I1, with corresponding weight w2 

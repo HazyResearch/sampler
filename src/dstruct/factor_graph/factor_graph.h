@@ -162,7 +162,7 @@ namespace dd{
           }
           pot += infrs->weight_values[ws[i]] * tmp;
         }
-      } else if (variable.domain_type == DTYPE_MULTINOMIAL) { // multinomial
+      } else if (variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) { // multinomial
         for (long i = 0; i < variable.n_factors; i++) {
           //if(ws[i] == -1){
           //  continue;
@@ -241,7 +241,7 @@ namespace dd{
     infrs->assignments_evid[variable.id] = new_value;
     infrs->agg_means[variable.id] += new_value;
     infrs->agg_nsamples[variable.id]  ++ ;
-    if(variable.domain_type == DTYPE_MULTINOMIAL){
+    if(variable.domain_type == DTYPE_MULTINOMIAL || variable.domain_type == DTYPE_CENSORED_MULTINOMIAL) {
       infrs->multinomial_tallies[variable.n_start_i_tally + (int)(new_value) - (int)variable.lower_bound] ++;
     }
   }
