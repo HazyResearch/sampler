@@ -37,7 +37,10 @@ Meta read_meta(string meta_file) {
 }
 
 // Read weights and load into factor graph
-long long read_weights(string filename, dd::FactorGraph &fg) {
+long long read_weights(
+    string filename, dd::FactorGraph &fg,
+    std::unordered_map<long long, long long> *wid_map,
+    std::unordered_map<long long, long long> *wid_reverse_map) {
   ifstream file;
   file.open(filename.c_str(), ios::in | ios::binary);
   long long count = 0;
@@ -52,6 +55,10 @@ long long read_weights(string filename, dd::FactorGraph &fg) {
     if (!file.read((char *)&initial_value, 8)) break;
     // convert endian
     id = bswap_64(id);
+    if (wid_map) {
+      get_or_insert(wid_reverse_map, count, id);
+      id = get_or_insert(wid_map, id, count);
+    }
     isfixed = padding;
     long long tmp = bswap_64(*(uint64_t *)&initial_value);
     initial_value = *(double *)&tmp;
@@ -66,7 +73,10 @@ long long read_weights(string filename, dd::FactorGraph &fg) {
 }
 
 // Read variables
-long long read_variables(string filename, dd::FactorGraph &fg) {
+long long read_variables(
+    string filename, dd::FactorGraph &fg,
+    std::unordered_map<long long, long long> *vid_map,
+    std::unordered_map<long long, long long> *vid_reverse_map) {
   ifstream file;
   file.open(filename.c_str(), ios::in | ios::binary);
   long long count = 0;
@@ -87,6 +97,11 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
 
     // convert endian
     id = bswap_64(id);
+    if (vid_map) {
+      get_or_insert(vid_reverse_map, count, id);
+      id = get_or_insert(vid_map, id, count);
+    }
+
     type = bswap_16(type);
     long long tmp = bswap_64(*(uint64_t *)&initial_value);
     initial_value = *(double *)&tmp;
@@ -115,7 +130,6 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
     bool is_evidence = isevidence >= 1;
     bool is_observation = isevidence == 2;
     double init_value = is_evidence ? initial_value : 0;
-
     fg.variables[id] =
         dd::Variable(id, type_const, is_evidence, 0, upper_bound, init_value,
                      init_value, edge_count, is_observation);
@@ -127,7 +141,6 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
     }
   }
   file.close();
-
   return count;
 }
 
@@ -135,7 +148,9 @@ long long read_variables(string filename, dd::FactorGraph &fg) {
 // The format of each line in factor file is: weight_id, type, equal_predicate,
 // edge_count, variable_id_1, padding_1, ..., variable_id_k, padding_k
 // It is binary format without delimiter.
-long long read_factors(string filename, dd::FactorGraph &fg) {
+long long read_factors(string filename, dd::FactorGraph &fg,
+                       std::unordered_map<long long, long long> *vid_map,
+                       std::unordered_map<long long, long long> *wid_map) {
   ifstream file;
   file.open(filename.c_str(), ios::in | ios::binary);
   long long count = 0;
@@ -153,6 +168,7 @@ long long read_factors(string filename, dd::FactorGraph &fg) {
     if (!file.read((char *)&edge_count, 8)) break;
 
     weightid = bswap_64(weightid);
+    if (wid_map) weightid = (*wid_map)[weightid];
     type = bswap_16(type);
     edge_count = bswap_64(edge_count);
     equal_predicate = bswap_64(equal_predicate);
@@ -165,6 +181,7 @@ long long read_factors(string filename, dd::FactorGraph &fg) {
       file.read((char *)&variable_id, 8);
       file.read((char *)&padding, 1);
       variable_id = bswap_64(variable_id);
+      if (vid_map) variable_id = (*vid_map)[variable_id];
       ispositive = padding;
 
       // wrong id

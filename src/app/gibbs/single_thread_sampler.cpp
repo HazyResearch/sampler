@@ -44,7 +44,6 @@ void SingleThreadSampler::sample_sgd_single_variable(long vid) {
   // gradient of weight = E[f|D] - E[f], where D is evidence variables,
   // f is the factor function, E[] is expectation. Expectation is calculated
   // using a sample of the variable.
-
   Variable &variable = p_fg->variables[vid];
   if (variable.is_observation) return;
 

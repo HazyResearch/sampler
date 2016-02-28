@@ -174,7 +174,8 @@ class idsorter : public std::binary_function<OBJTOSORT, OBJTOSORT, bool> {
 //   4. read factors
 //   5. sort factors by id
 //   6. read edges
-void dd::FactorGraph::load(const CmdParser &cmd, const bool is_quiet, int inc) {
+void dd::FactorGraph::load(const CmdParser &cmd, const bool is_quiet, int inc,
+                           Mapping *mapping) {
   // get factor graph file names from command line arguments
   std::string filename_edges;
   std::string filename_factors;
@@ -192,8 +193,13 @@ void dd::FactorGraph::load(const CmdParser &cmd, const bool is_quiet, int inc) {
   }
 
   // load variables
-  long long n_loaded = read_variables(filename_variables, *this);
-
+  long long n_loaded;
+  if (cmd.assignment_file != "") {
+    n_loaded = read_variables(filename_variables, *this, &(mapping->vid_map),
+                              &(mapping->vid_reverse_map));
+  } else {
+    n_loaded = read_variables(filename_variables, *this);
+  }
   if (cmd.delta_folder != "") {
     std::cout << "Loading delta..." << std::endl;
     std::cout << cmd.delta_folder + "/graph.variables" << std::endl;
@@ -207,7 +213,12 @@ void dd::FactorGraph::load(const CmdParser &cmd, const bool is_quiet, int inc) {
   }
 
   // load weights
-  n_loaded = read_weights(filename_weights, *this);
+  if (cmd.assignment_file != "") {
+    n_loaded = read_weights(filename_weights, *this, &(mapping->wid_map),
+                            &(mapping->wid_reverse_map));
+  } else {
+    n_loaded = read_weights(filename_weights, *this);
+  }
   if (cmd.delta_folder != "") {
     std::cout << "Loading delta..." << std::endl;
     n_loaded += read_weights(cmd.delta_folder + "/graph.weights", *this);
@@ -223,8 +234,12 @@ void dd::FactorGraph::load(const CmdParser &cmd, const bool is_quiet, int inc) {
   // load factors
   if (inc)
     n_loaded = read_factors_inc(filename_factors, *this);
-  else
+  else if (cmd.assignment_file != "") {
+    n_loaded = read_factors(filename_factors, *this, &(mapping->vid_map),
+                            &(mapping->wid_map));
+  } else {
     n_loaded = read_factors(filename_factors, *this);
+  }
   if (cmd.delta_folder != "") {
     std::cout << "Loading delta..." << cmd.delta_folder + "/graph.factors"
               << std::endl;

@@ -6,6 +6,7 @@
 
 #include "io/cmd_parser.h"
 #include "io/binary_parser.h"
+#include "io/mapping.h"
 
 #include "app/gibbs/gibbs_sampling.h"
 #include "dstruct/factor_graph/factor_graph.h"

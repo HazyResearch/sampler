@@ -238,6 +238,7 @@ void gibbs(dd::CmdParser &cmd_parser) {
   double reg_param = cmd_parser.reg_param;
   bool is_quiet = cmd_parser.should_be_quiet;
   bool sample_evidence = cmd_parser.should_sample_evidence;
+  std::cout << "sample_evidence" << sample_evidence << std::endl;
   int burn_in = cmd_parser.burn_in;
   bool learn_non_evidence = cmd_parser.should_learn_non_evidence;
   regularization reg = cmd_parser.regularization == "l1" ? REG_L1 : REG_L2;
@@ -289,13 +290,13 @@ void gibbs(dd::CmdParser &cmd_parser) {
   // run on NUMA node 0
   numa_run_on_node(0);
   numa_set_localalloc();
-
+  Mapping mapping;
   // load factor graph
   dd::FactorGraph fg(meta.num_variables, meta.num_factors, meta.num_weights,
                      meta.num_edges);
-  fg.load(cmd_parser, is_quiet, false);
+  fg.load(cmd_parser, is_quiet, false, &mapping);
   dd::GibbsSampling gibbs(&fg, &cmd_parser, n_datacopy, sample_evidence,
-                          burn_in, learn_non_evidence);
+                          burn_in, learn_non_evidence, &mapping.wid_map);
 
   // number of learning epochs
   // the factor graph is copied on each NUMA node, so the total epochs =
@@ -306,9 +307,8 @@ void gibbs(dd::CmdParser &cmd_parser) {
   // learning
   gibbs.learn(numa_aware_n_learning_epoch, n_samples_per_learning_epoch,
               stepsize, decay, reg_param, is_quiet, false, reg);
-
   // dump weights
-  gibbs.dump_weights(is_quiet, 0);
+  gibbs.dump_weights(is_quiet, 0, &mapping.wid_reverse_map);
 
   // number of inference epochs
   int numa_aware_n_epoch =
@@ -316,5 +316,8 @@ void gibbs(dd::CmdParser &cmd_parser) {
 
   // inference
   gibbs.inference(numa_aware_n_epoch, is_quiet, false, false);
-  gibbs.aggregate_results_and_dump(is_quiet, 0);
+  gibbs.aggregate_results_and_dump(is_quiet, 0, &mapping.vid_reverse_map);
+  if (cmd_parser.assignment_file != "") gibbs.dump_last_assignments();
+  if (cmd_parser.weight_binary_file != "")
+    gibbs.dump_weights_binary(&mapping.wid_reverse_map);
 }

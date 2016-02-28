@@ -20,6 +20,14 @@ CmdParser::CmdParser(std::string _app_name) {
                                                   false, "", "string", *cmd_);
     weight_file_ = new TCLAP::ValueArg<std::string>(
         "w", "weights", "weights file", false, "", "string", *cmd_);
+
+    assignment_file_ = new TCLAP::ValueArg<std::string>(
+        "", "assignments", "assignments file", false, "", "string", *cmd_);
+
+    weight_binary_file_ = new TCLAP::ValueArg<std::string>(
+        "", "weights_binary", "binary weights file", false, "", "string",
+        *cmd_);
+
     output_folder_ = new TCLAP::ValueArg<std::string>(
         "o", "outputFile", "Output Folder", false, "", "string", *cmd_);
 
@@ -89,6 +97,8 @@ void CmdParser::parse(int argc, char **argv) {
   factor_file = factor_file_->getValue();
   edge_file = edge_file_->getValue();
   weight_file = weight_file_->getValue();
+  assignment_file = assignment_file_->getValue();
+  weight_binary_file = weight_binary_file_->getValue();
   output_folder = output_folder_->getValue();
 
   delta_folder = delta_folder_->getValue();

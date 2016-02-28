@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include "io/cmd_parser.h"
+#include "io/mapping.h"
 #include "dstruct/factor_graph/factor_graph.h"
 
 #ifndef _GIBBS_SAMPLING_H_
@@ -49,7 +50,7 @@ namespace dd{
      * keeping one factor graph.
      */
     GibbsSampling(FactorGraph * const _p_fg, CmdParser * const _p_cmd_parser, 
-        int n_datacopy, bool sample_evidence, int burn_in, bool learn_non_evidence);
+        int n_datacopy, bool sample_evidence, int burn_in, bool learn_non_evidence, std::unordered_map<long long, long long> *wid_map = NULL);
 
     /**
      * Performs learning
@@ -76,14 +77,24 @@ namespace dd{
      * Dumps the inference result for variables
      * is_quiet whether to compress information display
      */
-    void aggregate_results_and_dump(const bool is_quiet, int inc);
+    void aggregate_results_and_dump(const bool is_quiet, int inc, std::unordered_map<long long, long long> *vid_reverse_map = NULL);
 
     /**
      * Dumps the learned weights
      * is_quiet whether to compress information display
      */
-    void dump_weights(const bool is_quiet, int inc);
+    void dump_weights(const bool is_quiet, int inc, std::unordered_map<long long, long long> *wid_reverse_map = NULL);
 
+    /**
+     * Dumps the last assignments
+     * for variables from all NUMA nodes
+     */
+    void dump_last_assignments();
+
+    /**
+     * Dumps the learned weights to binary format
+     */
+    void dump_weights_binary(std::unordered_map<long long, long long> *wid_reverse_map = NULL);
   };
 }
 

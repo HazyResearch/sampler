@@ -23,6 +23,8 @@ class CmdParser {
   std::string factor_file;
   std::string edge_file;
   std::string weight_file;
+  std::string assignment_file;
+  std::string weight_binary_file;
   std::string output_folder;
 
   std::string original_folder;
@@ -60,6 +62,8 @@ class CmdParser {
   TCLAP::ValueArg<std::string> *weight_file_;
   TCLAP::ValueArg<std::string> *variable_file_;
   TCLAP::ValueArg<std::string> *factor_file_;
+  TCLAP::ValueArg<std::string> *assignment_file_;
+  TCLAP::ValueArg<std::string> *weight_binary_file_;
   TCLAP::ValueArg<std::string> *output_folder_;
 
   TCLAP::MultiArg<int> *n_learning_epoch_;

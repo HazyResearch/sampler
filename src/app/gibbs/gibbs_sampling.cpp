@@ -1,16 +1,17 @@
 
 #include "app/gibbs/gibbs_sampling.h"
 #include "app/gibbs/single_node_sampler.h"
+#include "io/binary_parser.h"
 #include "common.h"
 #include <unistd.h>
 #include <fstream>
 #include <memory>
 #include "timer.h"
 
-dd::GibbsSampling::GibbsSampling(FactorGraph *const _p_fg,
-                                 CmdParser *const _p_cmd_parser, int n_datacopy,
-                                 bool sample_evidence, int burn_in,
-                                 bool learn_non_evidence)
+dd::GibbsSampling::GibbsSampling(
+    FactorGraph *const _p_fg, CmdParser *const _p_cmd_parser, int n_datacopy,
+    bool sample_evidence, int burn_in, bool learn_non_evidence,
+    std::unordered_map<long long, long long> *wid_map)
     : p_fg(_p_fg),
       p_cmd_parser(_p_cmd_parser),
       sample_evidence(sample_evidence),
@@ -42,6 +43,58 @@ dd::GibbsSampling::GibbsSampling(FactorGraph *const _p_fg,
     fg.copy_from(p_fg);
 
     this->factorgraphs.push_back(fg);
+  }
+  if (p_cmd_parser->assignment_file != "") {
+    // update inference results
+    std::string filename_text = p_cmd_parser->assignment_file;
+    std::cout << "UPDATE... TEXT    : " << filename_text << std::endl;
+    std::ifstream fin_text(filename_text.c_str(), ios::in | ios::binary);
+    for (int i = 0; i <= n_numa_nodes; i++) {
+      const FactorGraph &cfg = this->factorgraphs[i];
+      fin_text.read((char *)&cfg.infrs->nvars, sizeof(long));
+      fin_text.read((char *)&cfg.infrs->nweights, sizeof(long));
+      fin_text.read((char *)&cfg.infrs->ntallies, sizeof(long));
+      for (int j = 0; j < cfg.infrs->ntallies; j++) {
+        fin_text.read((char *)&cfg.infrs->multinomial_tallies[j], sizeof(int));
+      }
+      for (int j = 0; j < cfg.infrs->nvars; j++) {
+        fin_text.read((char *)&cfg.infrs->agg_means[j], sizeof(double));
+      }
+      for (int j = 0; j < cfg.infrs->nvars; j++) {
+        fin_text.read((char *)&cfg.infrs->agg_nsamples[j], sizeof(double));
+      }
+      for (int j = 0; j < cfg.infrs->nvars; j++) {
+        fin_text.read((char *)&cfg.infrs->assignments_free[j], sizeof(int));
+      }
+      for (int j = 0; j < cfg.infrs->nvars; j++) {
+        fin_text.read((char *)&cfg.infrs->assignments_evid[j], sizeof(int));
+      }
+      for (int j = 0; j < cfg.infrs->nweights; j++) {
+        fin_text.read((char *)&cfg.infrs->weight_values[j], sizeof(double));
+      }
+      for (int j = 0; j < cfg.infrs->nweights; j++) {
+        fin_text.read((char *)&cfg.infrs->weights_isfixed[j], sizeof(bool));
+      }
+    }
+  }
+
+  if (p_cmd_parser->weight_binary_file != "") {
+    // update weights
+    std::string filename_text = p_cmd_parser->weight_binary_file;
+    std::cout << "UPDATE... TEXT    : " << filename_text << std::endl;
+    std::ifstream fin_text(filename_text.c_str(), ios::in | ios::binary);
+    for (long i = 0; i < p_fg->n_weight; i++) {
+      long wid;
+      double weight;
+      fin_text.read((char *)&wid, sizeof(long));
+      fin_text.read((char *)&weight, sizeof(double));
+      if (wid_map) {
+        wid = (*wid_map)[wid];
+      }
+      for (int j = 0; j <= n_numa_nodes; j++) {
+        this->factorgraphs[j].infrs->weight_values[wid] = weight;
+      }
+    }
   }
 };
 
@@ -273,7 +326,9 @@ void dd::GibbsSampling::learn(const int &n_epoch, const int &n_sample_per_epoch,
   }
 }
 
-void dd::GibbsSampling::dump_weights(const bool is_quiet, int inc) {
+void dd::GibbsSampling::dump_weights(
+    const bool is_quiet, int inc,
+    std::unordered_map<long long, long long> *wid_reverse_map) {
   // learning weights snippets
   FactorGraph const &cfg = this->factorgraphs[0];
   if (!is_quiet) {
@@ -289,7 +344,6 @@ void dd::GibbsSampling::dump_weights(const bool is_quiet, int inc) {
     }
     std::cout << "   ..." << std::endl;
   }
-
   // dump learned weights
   std::string filename_text;
   if (inc == 0) {  // original
@@ -304,13 +358,18 @@ void dd::GibbsSampling::dump_weights(const bool is_quiet, int inc) {
 
   std::ofstream fout_text(filename_text.c_str());
   for (long i = 0; i < cfg.infrs->nweights; i++) {
-    fout_text << i << " " << cfg.infrs->weight_values[i] << std::endl;
+    long long wid = i;
+    if (wid_reverse_map) {
+      wid = (*wid_reverse_map)[i];
+    }
+    fout_text << wid << " " << cfg.infrs->weight_values[i] << std::endl;
   }
   fout_text.close();
 }
 
-void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
-                                                   int inc) {
+void dd::GibbsSampling::aggregate_results_and_dump(
+    const bool is_quiet, int inc,
+    std::unordered_map<long long, long long> *vid_reverse_map) {
   // sum of variable assignments
   std::unique_ptr<double[]> agg_means(new double[factorgraphs[0].n_var]);
   // number of samples
@@ -341,7 +400,7 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
   }
 
   // inference snippets
-  if (!is_quiet) {
+  if (!is_quiet && vid_reverse_map == NULL) {
     std::cout << "INFERENCE SNIPPETS (QUERY VARIABLES):" << std::endl;
     int ct = 0;
     for (long i = 0; i < factorgraphs[0].n_var; i++) {
@@ -395,11 +454,15 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
     if (variable.is_evid == true && !sample_evidence) {
       continue;
     }
+    long vid = variable.id;
+    if (vid_reverse_map) {
+      vid = (*vid_reverse_map)[vid];
+    }
 
     if (variable.domain_type != DTYPE_BOOLEAN) {
       if (variable.domain_type == DTYPE_MULTINOMIAL) {
         for (int j = 0; j <= variable.upper_bound; j++) {
-          fout_text << variable.id << " " << j << " "
+          fout_text << vid << " " << j << " "
                     << (1.0 *
                         multinomial_tallies[variable.n_start_i_tally + j] /
                         agg_nsamples[variable.id])
@@ -412,14 +475,14 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
         assert(false);
       }
     } else {
-      fout_text << variable.id << " " << 1 << " "
+      fout_text << vid << " " << 1 << " "
                 << (agg_means[variable.id] / agg_nsamples[variable.id])
                 << std::endl;
     }
   }
   fout_text.close();
 
-  if (!is_quiet) {
+  if (!is_quiet && vid_reverse_map == NULL) {
     // show a histogram of inference results
     std::cout << "INFERENCE CALIBRATION (QUERY BINS):" << std::endl;
     std::vector<int> abc;
@@ -445,4 +508,56 @@ void dd::GibbsSampling::aggregate_results_and_dump(const bool is_quiet,
                 << abc[i] << std::endl;
     }
   }
+}
+
+void dd::GibbsSampling::dump_last_assignments() {
+  // dump inference assignments
+  std::string filename_text = p_cmd_parser->assignment_file;
+  std::cout << "DUMPING... TEXT    : " << filename_text << std::endl;
+  std::ofstream fout_text(filename_text.c_str(), ios::out | ios::binary);
+  for (int i = 0; i <= n_numa_nodes; i++) {
+    const FactorGraph &cfg = factorgraphs[i];
+    fout_text.write((char *)&cfg.infrs->nvars, sizeof(long));
+    fout_text.write((char *)&cfg.infrs->nweights, sizeof(long));
+    fout_text.write((char *)&cfg.infrs->ntallies, sizeof(long));
+    for (int j = 0; j < cfg.infrs->ntallies; j++) {
+      fout_text.write((char *)&cfg.infrs->multinomial_tallies[j], sizeof(int));
+    }
+    for (int j = 0; j < cfg.infrs->nvars; j++) {
+      fout_text.write((char *)&cfg.infrs->agg_means[j], sizeof(double));
+    }
+    for (int j = 0; j < cfg.infrs->nvars; j++) {
+      fout_text.write((char *)&cfg.infrs->agg_nsamples[j], sizeof(double));
+    }
+    for (int j = 0; j < cfg.infrs->nvars; j++) {
+      fout_text.write((char *)&cfg.infrs->assignments_free[j], sizeof(int));
+    }
+    for (int j = 0; j < cfg.infrs->nvars; j++) {
+      fout_text.write((char *)&cfg.infrs->assignments_evid[j], sizeof(int));
+    }
+    for (int j = 0; j < cfg.infrs->nweights; j++) {
+      fout_text.write((char *)&cfg.infrs->weight_values[j], sizeof(double));
+    }
+    for (int j = 0; j < cfg.infrs->nweights; j++) {
+      fout_text.write((char *)&cfg.infrs->weights_isfixed[j], sizeof(bool));
+    }
+  }
+}
+
+void dd::GibbsSampling::dump_weights_binary(
+    std::unordered_map<long long, long long> *wid_reverse_map) {
+  // dump shared weights
+  std::string filename_text = p_cmd_parser->weight_binary_file;
+  std::cout << "DUMPING... TEXT    : " << filename_text << std::endl;
+  std::ofstream fout_text(filename_text.c_str(), ios::out | ios::binary);
+  FactorGraph const &cfg = this->factorgraphs[0];
+  for (long i = 0; i < cfg.infrs->nweights; i++) {
+    long wid = i;
+    if (wid_reverse_map) {
+      wid = (*wid_reverse_map)[i];
+    }
+    fout_text.write((char *)&wid, sizeof(long));
+    fout_text.write((char *)&cfg.infrs->weight_values[i], sizeof(double));
+  }
+  fout_text.close();
 }
