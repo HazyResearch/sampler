@@ -31,7 +31,22 @@ int dw(int argc, const char *const argv[]) {
   return (mode != MODES.end()) ? mode->second(cmd_parser) : 1;
 }
 
-int gibbs(const CmdParser &args) {
+void compact(dd::CmdParser &cmd_parser) {
+  // TODO: Implement me!
+  return;
+}
+
+void init_assignments(dd::CmdParser &cmd_parser) {
+  // TODO: Implement me!
+  return;
+}
+
+void init_weights(dd::CmdParser &cmd_parser) {
+  // TODO: Implement me!
+  return;
+}
+
+int gibbs(const dd::CmdParser &args) {
   // number of NUMA nodes
   size_t n_numa_node = numa_max_node() + 1;
   // number of max threads per NUMA node
@@ -89,6 +104,10 @@ int gibbs(const CmdParser &args) {
   // inference
   dw.inference();
   dw.aggregate_results_and_dump();
+
+  if (args.should_use_snapshot) {
+    gibbs.do_checkpoint(args.should_be_quiet);
+  }
 
   return 0;
 }
