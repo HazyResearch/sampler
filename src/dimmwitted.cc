@@ -19,6 +19,9 @@ int dw(int argc, const char *const argv[]) {
   // available modes
   const std::map<std::string, int (*)(const CmdParser &)> MODES = {
       {"gibbs", gibbs},  // to do the learning and inference with Gibbs sampling
+      {"init", init},  // to instantiate compact factor graph and weights
+      {"learn", learn},  // to perform learning with Gibbs sampling
+      {"inference", inference},  // to perform inference with Gibbs sampling
       {"text2bin", text2bin},  // to generate binary factor graphs from TSV
       {"bin2text", bin2text},  // to dump TSV of binary factor graphs
   };
@@ -31,19 +34,124 @@ int dw(int argc, const char *const argv[]) {
   return (mode != MODES.end()) ? mode->second(cmd_parser) : 1;
 }
 
-void compact(dd::CmdParser &cmd_parser) {
-  // TODO: Implement me!
-  return;
+int init(const dd::CmdParser &opts) {
+  // number of NUMA nodes
+  size_t n_numa_node = numa_max_node() + 1;
+  // number of max threads per NUMA node
+  size_t n_thread_per_numa = (sysconf(_SC_NPROCESSORS_CONF)) / (n_numa_node);
+
+  if (!opts.should_be_quiet) {
+    std::cout << std::endl;
+    std::cout << "#################MACHINE CONFIG#################"
+              << std::endl;
+    std::cout << "# # NUMA Node        : " << n_numa_node << std::endl;
+    std::cout << "# # Thread/NUMA Node : " << n_thread_per_numa << std::endl;
+    std::cout << "################################################"
+              << std::endl;
+    std::cout << std::endl;
+    std::cout << opts << std::endl;
+  }
+
+  FactorGraphDescriptor meta = read_meta(opts.fg_file);
+  if (!opts.should_be_quiet) {
+    std::cout << meta << std::endl;
+  }
+
+  // Run on NUMA node 0
+  numa_run_on_node(0);
+  numa_set_localalloc();
+
+  // Load factor graph
+  dprintf("Initializing factor graph...\n");
+  std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
+
+  fg->load_variables(opts.variable_file);
+  fg->load_weights(opts.weight_file);
+  fg->load_domains(opts.domain_file);
+  fg->load_factors(opts.factor_file);
+  fg->safety_check();
+
+  if (!opts.should_be_quiet) {
+    std::cout << "Printing FactorGraph statistics:" << std::endl;
+    std::cout << *fg << std::endl;
+  }
+
+  std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(*fg));
+  cfg->dump(opts.snapshot_path);
+
+  // Initialize Gibbs sampling application.
+  DimmWitted dw(std::move(cfg),
+      fg->weights.get(), opts);
+
+  // Explicitly drop the raw factor graph used only during loading
+  fg.release();
+
+  // In the very beginning, checkpointing the weights is not required since
+  // the weights should be equal to the one defined in the weights file.
+  dw.checkpoint(false);
+
+  return 0;
 }
 
-void init_assignments(dd::CmdParser &cmd_parser) {
-  // TODO: Implement me!
-  return;
+int learn(const dd::CmdParser &opts) {
+  /*
+   * This will be some awkward shit I'll ever write, but let's see what Jaeho
+   * thinks. I'm going to create a factor graph to load the weights array, but
+   * only for that purpose. At least until Weight[] ownership is clarified.
+   */
+  std::cout << "Performing learning on persisted compact factor graph...";
+  FactorGraphDescriptor meta = read_meta(opts.fg_file);
+  std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
+
+  fg->load_weights(opts.weight_file);
+
+  DimmWitted dw(
+      std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph()),
+      fg->weights.get(), opts);
+
+  fg.release();
+
+  // Restore the factor graph assignments and weights.
+  dw.resume();
+
+  // learning
+  dw.learn();
+
+  // Similar to the main `gibbs` workflow, dump the weights as well.
+  dw.dump_weights();
+
+  // Checkpoint the state, but this time, checkpoint the weights as well.
+  dw.checkpoint(true);
+
+  return 0;
 }
 
-void init_weights(dd::CmdParser &cmd_parser) {
-  // TODO: Implement me!
-  return;
+int inference(const dd::CmdParser &opts) {
+  /*
+   * This will be some awkward shit I'll ever write, but let's see what Jaeho
+   * thinks. I'm going to create a factor graph to load the weights array, but
+   * only for that purpose. At least until Weight[] ownership is clarified.
+   */
+  std::cout << "Performing inference on persisted compact factor graph...";
+  FactorGraphDescriptor meta = read_meta(opts.fg_file);
+  std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
+
+  fg->load_weights(opts.weight_file);
+
+  DimmWitted dw(
+      std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph()),
+      fg->weights.get(), opts);
+
+  fg.release();
+
+  // Restore the factor graph assignments and weights.
+  dw.resume();
+
+  // inference
+  dw.inference();
+  dw.aggregate_results_and_dump();
+
+  return 0;
 }
 
 int gibbs(const dd::CmdParser &args) {
@@ -255,6 +363,40 @@ void DimmWitted::dump_weights() {
   std::ofstream fout_text(filename_text);
   infrs.dump_weights_in_text(fout_text);
   fout_text.close();
+}
+
+void DimmWitted::checkpoint(bool should_include_weights) {
+  // Weights should be persisted after learning.
+  if (should_include_weights) {
+    std::ofstream weights_binary_out;
+    weights_binary_out.open(opts.weight_file + ".out");
+
+    // First sampler holds the merged weights after learning.
+    //
+    // Ideally, this should be LearningResult to emphasize the fact
+    // that we're calling checkpoint only after learning is called.
+    samplers[0].infrs.dump_weights_in_binary(weights_binary_out);
+  }
+
+  for (size_t i = 0; i < n_numa_nodes; ++i) {
+    std::ofstream assignments_binary_out;
+    assignments_binary_out.open(opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i), std::ios::binary | std::ios::out);
+
+    samplers[i].infrs.dump_assignments_in_binary(assignments_binary_out);
+  }
+
+  return;
+}
+
+void DimmWitted::resume() {
+  for (size_t i = 0; i < n_numa_nodes; ++i) {
+    samplers[i].infrs.load_weights(weights);
+
+    std::ifstream assignments_binary_in;
+    assignments_binary_in.open(opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i), std::ios::binary | std::ios::in);
+
+    samplers[i].infrs.load_assignments(assignments_binary_in);
+  }
 }
 
 void DimmWitted::aggregate_results_and_dump() {

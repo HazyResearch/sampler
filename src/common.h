@@ -29,6 +29,7 @@
 #endif
 
 #include <math.h>
+#include <iostream>
 
 #define LOG_2 0.693147180559945
 #define MINUS_LOG_THRESHOLD -18.42
@@ -128,6 +129,11 @@ inline double logadd(double log_a, double log_b) {
   double negative_absolute_difference = log_b - log_a;
   if (negative_absolute_difference < MINUS_LOG_THRESHOLD) return (log_a);
   return (log_a + log1p(exp(negative_absolute_difference)));
+}
+
+inline void implement_me() {
+  std::cout << "Implement me at " << __FILE__ << ":" << __LINE__ << std::endl;
+  std::abort();
 }
 
 }  // namespace dd

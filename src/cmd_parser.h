@@ -21,7 +21,9 @@ class CmdParser {
   std::string factor_file;
   std::string weight_file;
   std::string output_folder;
+  std::string snapshot_folder;
   std::string domain_file;
+  std::string snapshot_path;
 
   num_epochs_t n_learning_epoch;
   num_epochs_t n_inference_epoch;

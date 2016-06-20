@@ -44,11 +44,20 @@ class InferenceResult {
   // copy constructor
   InferenceResult(const InferenceResult &other);
 
+  void load_weights(const Weight weights[]);
+  void load_assignments(std::ifstream &binary_input);
   void merge_weights_from(const InferenceResult &other);
   void average_regularize_weights(double current_stepsize);
   void copy_weights_to(InferenceResult &other) const;
   void show_weights_snippet(std::ostream &output) const;
+  // XXX(igozali): Smells like an enum to me...
   void dump_weights_in_text(std::ostream &text_output) const;
+  /*
+   * This is actually the inverse of FactorGraph::dump_weights. It kinda makes
+   * sense if you think about it...
+   */
+  void dump_weights_in_binary(std::ofstream &binary_output) const;
+  void dump_assignments_in_binary(std::ofstream &binary_output) const;
 
   void clear_variabletally();
   void aggregate_marginals_from(const InferenceResult &other);

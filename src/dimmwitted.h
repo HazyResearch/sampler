@@ -16,7 +16,11 @@ int dw(int argc, const char* const argv[]);
 /**
  * Runs gibbs sampling using the given command line parser
  */
-int gibbs(const CmdParser& cmd_parser);
+int gibbs(const CmdParser& opts);
+
+int init(const CmdParser& cmd_parser);
+int learn(const CmdParser& cmd_parser);
+int inference(const CmdParser& cmd_parser);
 
 /**
  * Class for (NUMA-aware) gibbs sampling
@@ -51,6 +55,8 @@ class DimmWitted {
   DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg, const Weight weights[],
              const CmdParser& opts);
 
+  DimmWitted(const Weight weights[], const CmdParser& opts);
+
   /**
    * Performs learning
    * n_epoch number of epochs. A epoch is one pass over data
@@ -82,6 +88,20 @@ class DimmWitted {
    * is_quiet whether to compress information display
    */
   void dump_weights();
+
+  /**
+   */
+  void load_weights();
+
+  /**
+   * Checkpoints the learned weights, and the assignments in each of the sampler.
+   */
+  void checkpoint(bool should_include_weights);
+
+  /**
+   * Loads the checkpointed weights and assignments in each node.
+   */
+  void resume();
 
  private:
   num_epochs_t compute_n_epochs(num_epochs_t n_epoch);

@@ -45,6 +45,7 @@ CmdParser::CmdParser(int argc, const char* const argv[]) {
     TCLAP::MultiArg<num_epochs_t> n_learning_epoch_("l", "n_learning_epoch",
                                                     "Number of Learning Epochs",
                                                     true, "int", cmd_);
+    // TODO: Seems unused, since it doesn't exist in cmd_parser.h!
     TCLAP::MultiArg<num_samples_t> n_samples_per_learning_epoch_(
         "s", "n_samples_per_learning_epoch",
         "Number of Samples per Leraning Epoch", true, "int", cmd_);
@@ -115,6 +116,199 @@ CmdParser::CmdParser(int argc, const char* const argv[]) {
     should_sample_evidence = sample_evidence_.getValue() > 0;
     should_learn_non_evidence = learn_non_evidence_.getValue() > 0;
 
+  } else if (app_name == "init") {
+    TCLAP::CmdLine cmd_("DimmWitted GIBBS", ' ', DimmWittedVersion);
+
+    TCLAP::ValueArg<std::string> fg_file_("m", "fg_meta",
+                                          "factor graph metadata file", false,
+                                          "", "string", cmd_);
+    TCLAP::ValueArg<std::string> variable_file_(
+        "v", "variables", "variables file", false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> factor_file_("f", "factors", "factors file",
+                                              false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> weight_file_("w", "weights", "weights file",
+                                              false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> output_folder_(
+        "o", "outputFile", "Output Folder", false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> snapshot_folder_(
+        "o", "", "Folder containing binary snapshot of compact factor graph",
+        false, "", "string", cmd_);
+
+    TCLAP::ValueArg<std::string> domain_file_(
+        "", "domains", "Categorical domains", false, "", "string", cmd_);
+
+    TCLAP::MultiArg<size_t> n_datacopy_(
+        "c", "n_datacopy",
+        "Number of factor graph copies. Use 0 for all "
+        "available NUMA nodes (default)",
+        false, "int", cmd_);
+    TCLAP::MultiArg<size_t> n_threads_(
+        "t", "n_threads",
+        "Number of threads to use. Use 0 for all available threads (default)",
+        false, "int", cmd_);
+
+    TCLAP::MultiSwitchArg quiet_("q", "quiet", "quiet output", cmd_);
+
+    cmd_.parse(argc, argv);
+
+    fg_file = fg_file_.getValue();
+    variable_file = variable_file_.getValue();
+    factor_file = factor_file_.getValue();
+    weight_file = weight_file_.getValue();
+    output_folder = output_folder_.getValue();
+    snapshot_folder = snapshot_folder_.getValue();
+    domain_file = domain_file_.getValue();
+
+    n_datacopy = getLastValueOrDefault(n_datacopy_, (size_t)0);
+    n_threads = getLastValueOrDefault(n_threads_, (size_t)0);
+    if (n_threads == 0) n_threads = sysconf(_SC_NPROCESSORS_CONF);
+
+    should_be_quiet = quiet_.getValue() > 0;
+  } else if (app_name == "learn") {
+    TCLAP::CmdLine cmd_("DimmWitted GIBBS", ' ', DimmWittedVersion);
+
+    // Input to learning phase
+    TCLAP::ValueArg<std::string> fg_file_("m", "fg_meta",
+                                          "factor graph metadata file", false,
+                                          "", "string", cmd_);
+    TCLAP::ValueArg<std::string> weight_file_("w", "weights", "weights file",
+                                              false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> snapshot_folder_(
+        "o", "", "Folder containing binary snapshot of compact factor graph",
+        false, "", "string", cmd_);
+
+    // Output to learning phase
+    TCLAP::ValueArg<std::string> output_folder_(
+        "o", "outputFile", "Output Folder", false, "", "string", cmd_);
+
+    // Parameters to learning phase
+    TCLAP::MultiArg<num_epochs_t> n_learning_epoch_("l", "n_learning_epoch",
+                                                    "Number of Learning Epochs",
+                                                    true, "int", cmd_);
+    // TODO: Seems unused, since it doesn't exist in cmd_parser.h!
+    TCLAP::MultiArg<num_samples_t> n_samples_per_learning_epoch_(
+        "s", "n_samples_per_learning_epoch",
+        "Number of Samples per Leraning Epoch", true, "int", cmd_);
+    TCLAP::MultiArg<num_epochs_t> burn_in_("", "burn_in", "Burn-in period",
+                                           false, "int", cmd_);
+    TCLAP::MultiArg<double> stepsize_("a", "alpha", "Stepsize", false, "double",
+                                      cmd_);
+    TCLAP::MultiArg<double> stepsize2_("p", "stepsize", "Stepsize", false,
+                                       "double", cmd_);
+    TCLAP::MultiArg<double> decay_(
+        "d", "diminish", "Decay of stepsize per epoch", false, "double", cmd_);
+    TCLAP::MultiSwitchArg sample_evidence_(
+        "", "sample_evidence", "also sample evidence variables in inference",
+        cmd_);
+    TCLAP::MultiSwitchArg learn_non_evidence_(
+        "", "learn_non_evidence", "sample non-evidence variables in learning",
+        cmd_);
+
+    // NUMA Parameters
+    TCLAP::MultiArg<size_t> n_datacopy_(
+        "c", "n_datacopy",
+        "Number of factor graph copies. Use 0 for all "
+        "available NUMA nodes (default)",
+        false, "int", cmd_);
+    TCLAP::MultiArg<size_t> n_threads_(
+        "t", "n_threads",
+        "Number of threads to use. Use 0 for all available threads (default)",
+        false, "int", cmd_);
+
+    TCLAP::MultiSwitchArg quiet_("q", "quiet", "quiet output", cmd_);
+
+    cmd_.parse(argc, argv);
+
+    fg_file = fg_file_.getValue();
+    weight_file = weight_file_.getValue();
+    snapshot_folder = snapshot_folder_.getValue();
+
+    output_folder = output_folder_.getValue();
+
+    n_learning_epoch =
+        getLastValueOrDefault(n_learning_epoch_, (num_epochs_t)0);
+    n_datacopy = getLastValueOrDefault(n_datacopy_, (size_t)0);
+    n_threads = getLastValueOrDefault(n_threads_, (size_t)0);
+    if (n_threads == 0) n_threads = sysconf(_SC_NPROCESSORS_CONF);
+    burn_in = getLastValueOrDefault(burn_in_, (num_epochs_t)0);
+    stepsize = getLastValueOrDefault(stepsize_, 0.01);
+    stepsize2 = getLastValueOrDefault(stepsize2_, 0.01);
+    if (stepsize == 0.01)
+      stepsize =
+          stepsize2;  // XXX hack to support two parameters to specify step size
+    decay = getLastValueOrDefault(decay_, 0.95);
+
+    should_be_quiet = quiet_.getValue() > 0;
+    should_sample_evidence = sample_evidence_.getValue() > 0;
+    should_learn_non_evidence = learn_non_evidence_.getValue() > 0;
+
+  } else if (app_name == "inference") {
+    TCLAP::CmdLine cmd_("DimmWitted GIBBS", ' ', DimmWittedVersion);
+
+    // Input to inference phase
+    TCLAP::ValueArg<std::string> fg_file_("m", "fg_meta",
+                                          "factor graph metadata file", false,
+                                          "", "string", cmd_);
+    TCLAP::ValueArg<std::string> weight_file_("w", "weights", "weights file",
+                                              false, "", "string", cmd_);
+    TCLAP::ValueArg<std::string> snapshot_folder_(
+        "o", "", "Folder containing binary snapshot of compact factor graph",
+        false, "", "string", cmd_);
+
+    // Output to inference phase
+    TCLAP::ValueArg<std::string> output_folder_(
+        "o", "outputFile", "Output Folder", false, "", "string", cmd_);
+
+    // Parameters to inference phase
+    TCLAP::MultiArg<num_epochs_t> n_inference_epoch_(
+        "i", "n_inference_epoch", "Number of Samples for Inference", true,
+        "int", cmd_);
+    TCLAP::MultiArg<num_epochs_t> burn_in_("", "burn_in", "Burn-in period",
+                                           false, "int", cmd_);
+    TCLAP::MultiArg<double> reg_param_(
+        "b", "reg_param", "l2 regularization parameter", false, "double", cmd_);
+    TCLAP::MultiArg<std::string> regularization_("", "regularization",
+                                                 "Regularization (l1 or l2)",
+                                                 false, "string", cmd_);
+    TCLAP::MultiSwitchArg sample_evidence_(
+        "", "sample_evidence", "also sample evidence variables in inference",
+        cmd_);
+
+    // NUMA Parameters
+    TCLAP::MultiArg<size_t> n_datacopy_(
+        "c", "n_datacopy",
+        "Number of factor graph copies. Use 0 for all "
+        "available NUMA nodes (default)",
+        false, "int", cmd_);
+    TCLAP::MultiArg<size_t> n_threads_(
+        "t", "n_threads",
+        "Number of threads to use. Use 0 for all available threads (default)",
+        false, "int", cmd_);
+
+    TCLAP::MultiSwitchArg quiet_("q", "quiet", "quiet output", cmd_);
+
+    cmd_.parse(argc, argv);
+
+    fg_file = fg_file_.getValue();
+    weight_file = weight_file_.getValue();
+    snapshot_folder = snapshot_folder_.getValue();
+
+    output_folder = output_folder_.getValue();
+
+    n_inference_epoch =
+        getLastValueOrDefault(n_inference_epoch_, (num_epochs_t)0);
+    n_datacopy = getLastValueOrDefault(n_datacopy_, (size_t)0);
+    n_threads = getLastValueOrDefault(n_threads_, (size_t)0);
+    if (n_threads == 0) n_threads = sysconf(_SC_NPROCESSORS_CONF);
+    burn_in = getLastValueOrDefault(burn_in_, (num_epochs_t)0);
+    reg_param = getLastValueOrDefault(reg_param_, 0.01);
+    regularization =
+        getLastValueOrDefault(regularization_, std::string("l2")) == "l1"
+            ? REG_L1
+            : REG_L2;
+
+    should_be_quiet = quiet_.getValue() > 0;
+    should_sample_evidence = sample_evidence_.getValue() > 0;
   } else if (app_name == "text2bin") {
     TCLAP::CmdLine cmd_("DimmWitted text2bin", ' ', DimmWittedVersion);
     TCLAP::UnlabeledValueArg<std::string> text2bin_mode_(

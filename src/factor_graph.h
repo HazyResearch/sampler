@@ -160,7 +160,7 @@ class CompactFactorGraph {
                                         variable_value_t proposal);
 
   /**
-   * Checkpoints the compact factor graph into binary files
+   * Dumps the factor graph in binary format.
    *
    * The binary snapshot files are stored in the snapshot directory path. A
    * path to a directory, instead of a regular file must be supplied to
@@ -171,7 +171,7 @@ class CompactFactorGraph {
    *   The path to the snapshot directory. If it doesn't exist, it will be
    *   created.
    */
-  void checkpoint(const std::string& snapshot_path);
+  void dump(const std::string& snapshot_path);
 
   /**
    * The inverse operation of checkpoint.

@@ -1,6 +1,7 @@
 #include "inference_result.h"
 #include "factor_graph.h"
 #include <iostream>
+#include <fstream>
 
 namespace dd {
 
@@ -112,10 +113,37 @@ void InferenceResult::show_weights_snippet(std::ostream &output) const {
   output << "   ..." << std::endl;
 }
 
+void InferenceResult::load_weights(const Weight weights[]) {
+  for (weight_id_t i = 0; i < nweights; ++i) {
+    weights_isfixed[i] = weights[i].isfixed;
+    weight_values[i] = weights[i].weight;
+  }
+}
+
+// FIXME(igozali): This might not actually be needed as per our discussion last Friday (Fri Jun 17, 2016)
+void InferenceResult::load_assignments(std::ifstream &binary_in) {
+  implement_me();
+}
+
 void InferenceResult::dump_weights_in_text(std::ostream &text_output) const {
   for (weight_id_t j = 0; j < nweights; ++j) {
     text_output << j << " " << weight_values[j] << std::endl;
   }
+}
+
+void InferenceResult::dump_weights_in_binary(std::ofstream &binary_output) const {
+  for (weight_id_t j = 0; j < nweights; ++j) {
+    char isfixed_char = weights_isfixed[j] ? 1 : 0;
+
+    binary_output.write((char *)&j, sizeof(weight_id_t));
+    binary_output.write((char *)&isfixed_char, sizeof(char));
+    binary_output.write((char *)&weight_values[j], sizeof(weight_value_t));
+  }
+}
+
+// FIXME: See note on load_assignments.
+void InferenceResult::dump_assignments_in_binary(std::ofstream &binary_output) const {
+  implement_me();
 }
 
 void InferenceResult::clear_variabletally() {
