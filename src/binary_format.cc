@@ -13,6 +13,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <sys/stat.h>
 
 namespace dd {
 
@@ -195,107 +196,36 @@ void FactorGraph::load_domains(const std::string &filename) {
 }
 
 /* Also used in test, but not exported in .h */
-const std::string get_copy_filename(const std::string &filename, int i) {
-  return filename + ".part" + std::to_string(i);
+//const std::string get_copy_filename(const std::string &filename, int i) {
+//  return filename + ".part" + std::to_string(i);
+//}
+
+
+/**
+ * Helper method to create directories in this C++ land.
+ */
+const bool create_directory(const std::string& path) {
+  if (mkdir(path.c_str(), S_IRWXU | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP) < 0) {
+    perror("mkdir failed");
+    return false;
+  }
+
+  return true;
 }
 
-void resume(std::string filename, int i, CompiledFactorGraph &cfg) {
-  std::ifstream inf;
-  inf.open(get_copy_filename(filename, i), std::ios::in | std::ios::binary);
-
-  /* Read metadata */
-  inf.read((char *)&cfg.n_var, sizeof(long));
-  inf.read((char *)&cfg.n_factor, sizeof(long));
-  inf.read((char *)&cfg.n_weight, sizeof(long));
-  inf.read((char *)&cfg.n_edge, sizeof(long));
-
-  inf.read((char *)&cfg.c_nvar, sizeof(long));
-  inf.read((char *)&cfg.c_nfactor, sizeof(long));
-  inf.read((char *)&cfg.c_nweight, sizeof(long));
-  inf.read((char *)&cfg.c_edge, sizeof(long));
-
-  inf.read((char *)&cfg.n_evid, sizeof(long));
-  inf.read((char *)&cfg.n_query, sizeof(long));
-
-  inf.read((char *)&cfg.stepsize, sizeof(double));
-
-  inf.read((char *)&cfg.is_inc, sizeof(int));
-
-  /*
-   * Note that at this point, we have recovered cfg.n_var. Plus, assume
-   * that the CompiledFactorGraph has been partially initialized through
-   * the graph.meta file, which should at least give us non-null arrays.
-   */
-  assert(cfg.variables);
-  for (auto j = 0; j < cfg.n_var; j++) {
-    inf.read((char *)&cfg.variables[j].id, sizeof(long));
-    inf.read((char *)&cfg.variables[j].domain_type, sizeof(int));
-    inf.read((char *)&cfg.variables[j].is_evid, sizeof(int));
-    inf.read((char *)&cfg.variables[j].is_observation, sizeof(int));
-    inf.read((char *)&cfg.variables[j].cardinality, sizeof(int));
-
-    inf.read((char *)&cfg.variables[j].assignment_evid, sizeof(VariableValue));
-    inf.read((char *)&cfg.variables[j].assignment_free, sizeof(VariableValue));
-
-    inf.read((char *)&cfg.variables[j].n_factors, sizeof(int));
-    inf.read((char *)&cfg.variables[j].n_start_i_factors, sizeof(long));
-
-    inf.read((char *)&cfg.variables[j].n_start_i_tally, sizeof(long));
-
-    /* XXX: Ignore last 3 components of Variable, might dump them anyways. */
-    /* XXX: What to do about domain_map, though? */
+const bool does_directory_exist(const std::string& path) {
+  struct stat stbuf;
+  if (stat(path.c_str(), &stbuf) < 0) {
+    perror("stat failed");
+    return false;
   }
 
-  assert(cfg.factors);
-  for (auto j = 0; j < cfg.n_factor; j++) {
-    inf.read((char *)&cfg.factors[j].id, sizeof(FactorIndex));
-    inf.read((char *)&cfg.factors[j].weight_id, sizeof(WeightIndex));
-    inf.read((char *)&cfg.factors[j].func_id, sizeof(int));
-    inf.read((char *)&cfg.factors[j].n_variables, sizeof(int));
-    inf.read((char *)&cfg.factors[j].n_start_i_vif, sizeof(long));
-
-    /* XXX: Also ignoring weight_ids in Factors */
+  if (!(stbuf.st_mode & S_IFDIR)) {
+    std::cout << "path " << path << " is not a directory!" << std::endl;
+    return false;
   }
 
-  assert(cfg.compact_factors);
-  assert(cfg.compact_factors_weightids);
-  assert(cfg.factor_ids);
-  assert(cfg.vifs);
-  for (auto j = 0; j < cfg.n_edge; j++) {
-    inf.read((char *)&cfg.compact_factors[j].id, sizeof(FactorIndex));
-    inf.read((char *)&cfg.compact_factors[j].func_id, sizeof(int));
-    inf.read((char *)&cfg.compact_factors[j].n_variables, sizeof(int));
-    inf.read((char *)&cfg.compact_factors[j].n_start_i_vif, sizeof(long));
-
-    inf.read((char *)&cfg.compact_factors_weightids[j], sizeof(int));
-
-    inf.read((char *)&cfg.factor_ids[j], sizeof(long));
-
-    inf.read((char *)&cfg.vifs[j].vid, sizeof(long));
-    inf.read((char *)&cfg.vifs[j].n_position, sizeof(int));
-    inf.read((char *)&cfg.vifs[j].is_positive, sizeof(int));
-    inf.read((char *)&cfg.vifs[j].equal_to, sizeof(VariableValue));
-  }
-
-  assert(cfg.infrs);
-  inf.read((char *)&cfg.infrs->ntallies, sizeof(long));
-  for (auto j = 0; j < cfg.infrs->ntallies; j++) {
-    inf.read((char *)&cfg.infrs->multinomial_tallies[j], sizeof(long));
-  }
-
-  for (auto j = 0; j < cfg.n_var; j++) {
-    inf.read((char *)&cfg.infrs->agg_means[j], sizeof(double));
-    inf.read((char *)&cfg.infrs->agg_nsamples[j], sizeof(double));
-    inf.read((char *)&cfg.infrs->assignments_free[j], sizeof(VariableValue));
-    inf.read((char *)&cfg.infrs->assignments_evid[j], sizeof(VariableValue));
-  }
-
-  /*
-   * XXX: We don't write the weights in `infrs` on purpose, since they're
-   * going to be recovered by a separate workflow.
-   */
-
-  return;
+  return true;
 }
 
 /**
@@ -305,101 +235,161 @@ void resume(std::string filename, int i, CompiledFactorGraph &cfg) {
  * TODO: It's worth explaining this process, and some design decisions that
  * were made in much more detail. I will do that when I clean up the code.
  */
-void checkpoint(std::string filename, std::vector<CompiledFactorGraph> &cfgs) {
-  auto n_cfgs = cfgs.size();
-  for (auto i = 0; i < n_cfgs; i++) {
-    std::ofstream outf;
-    outf.open(get_copy_filename(filename, i), std::ios::out | std::ios::binary);
+void CompactFactorGraph::checkpoint(const std::string& snapshot_path) {
+  std::ofstream outf;
 
-    const auto &cfg = cfgs[i];
-
-    /* Now write all the common things that a CompiledFactorGraph has. */
-    /* TODO: Need to convert to network order!? */
-    outf.write((char *)&cfg.n_var, sizeof(long));
-    outf.write((char *)&cfg.n_factor, sizeof(long));
-    outf.write((char *)&cfg.n_weight, sizeof(long));
-    outf.write((char *)&cfg.n_edge, sizeof(long));
-
-    outf.write((char *)&cfg.c_nvar, sizeof(long));
-    outf.write((char *)&cfg.c_nfactor, sizeof(long));
-    outf.write((char *)&cfg.c_nweight, sizeof(long));
-    outf.write((char *)&cfg.c_edge, sizeof(long));
-
-    outf.write((char *)&cfg.n_evid, sizeof(long));
-    outf.write((char *)&cfg.n_query, sizeof(long));
-
-    outf.write((char *)&cfg.stepsize, sizeof(double));
-
-    outf.write((char *)&cfg.is_inc, sizeof(int));
-
-    for (auto j = 0; j < cfg.n_var; j++) {
-      outf.write((char *)&cfg.variables[j].id, sizeof(long));
-      outf.write((char *)&cfg.variables[j].domain_type, sizeof(int));
-      outf.write((char *)&cfg.variables[j].is_evid, sizeof(int));
-      outf.write((char *)&cfg.variables[j].is_observation, sizeof(int));
-      outf.write((char *)&cfg.variables[j].cardinality, sizeof(int));
-
-      outf.write((char *)&cfg.variables[j].assignment_evid,
-                 sizeof(VariableValue));
-      outf.write((char *)&cfg.variables[j].assignment_free,
-                 sizeof(VariableValue));
-
-      outf.write((char *)&cfg.variables[j].n_factors, sizeof(int));
-      outf.write((char *)&cfg.variables[j].n_start_i_factors, sizeof(long));
-
-      outf.write((char *)&cfg.variables[j].n_start_i_tally, sizeof(long));
-
-      /* XXX: Ignore last 3 components of Variable, might dump them anyways. */
-      /* XXX: What to do about domain_map, though? */
-    }
-
-    for (auto j = 0; j < cfg.n_factor; j++) {
-      outf.write((char *)&cfg.factors[j].id, sizeof(FactorIndex));
-      outf.write((char *)&cfg.factors[j].weight_id, sizeof(WeightIndex));
-      outf.write((char *)&cfg.factors[j].func_id, sizeof(int));
-      outf.write((char *)&cfg.factors[j].n_variables, sizeof(int));
-      outf.write((char *)&cfg.factors[j].n_start_i_vif, sizeof(long));
-
-      /* XXX: Also ignoring weight_ids in Factors */
-    }
-
-    for (auto j = 0; j < cfg.n_edge; j++) {
-      outf.write((char *)&cfg.compact_factors[j].id, sizeof(FactorIndex));
-      outf.write((char *)&cfg.compact_factors[j].func_id, sizeof(int));
-      outf.write((char *)&cfg.compact_factors[j].n_variables, sizeof(int));
-      outf.write((char *)&cfg.compact_factors[j].n_start_i_vif, sizeof(long));
-
-      outf.write((char *)&cfg.compact_factors_weightids[j], sizeof(int));
-
-      outf.write((char *)&cfg.factor_ids[j], sizeof(long));
-
-      outf.write((char *)&cfg.vifs[j].vid, sizeof(long));
-      outf.write((char *)&cfg.vifs[j].n_position, sizeof(int));
-      outf.write((char *)&cfg.vifs[j].is_positive, sizeof(int));
-      outf.write((char *)&cfg.vifs[j].equal_to, sizeof(VariableValue));
-    }
-
-    outf.write((char *)&cfg.infrs->ntallies, sizeof(long));
-    for (auto j = 0; j < cfg.infrs->ntallies; j++) {
-      outf.write((char *)&cfg.infrs->multinomial_tallies[j], sizeof(long));
-    }
-
-    for (auto j = 0; j < cfg.n_var; j++) {
-      outf.write((char *)&cfg.infrs->agg_means[j], sizeof(double));
-      outf.write((char *)&cfg.infrs->agg_nsamples[j], sizeof(double));
-      outf.write((char *)&cfg.infrs->assignments_free[j],
-                 sizeof(VariableValue));
-      outf.write((char *)&cfg.infrs->assignments_evid[j],
-                 sizeof(VariableValue));
-    }
-
-    /*
-     * XXX: We don't write the weights in `infrs` on purpose, since they're
-     * going to be recovered by a separate workflow.
-     */
-
-    outf.close();
+  if (!create_directory(snapshot_path)) {
+    std::cout << "Failed to create snapshot directory " << snapshot_path
+      << std::endl;
+    std::abort();
   }
+
+  // XXX: We officially do NOT support Windows.
+  outf.open(snapshot_path + "/" + this->snapshot_filename,
+    std::ios::out | std::ios::binary);
+
+  /* Now write all the common things that a CompactFactorGraph has. */
+  outf.write((char *)&size, sizeof(FactorGraphDescriptor));
+
+  for (auto j = 0; j < size.num_variables; j++) {
+    outf.write((char *)&variables[j].id, sizeof(variable_id_t));
+    outf.write((char *)&variables[j].domain_type,
+        sizeof(variable_domain_type_t));
+
+    outf.write((char *)&variables[j].is_evid, sizeof(int));
+    outf.write((char *)&variables[j].is_observation, sizeof(int));
+    outf.write((char *)&variables[j].cardinality, sizeof(num_variable_values_t));
+
+    outf.write((char *)&variables[j].assignment_evid, sizeof(variable_value_t));
+    outf.write((char *)&variables[j].assignment_free, sizeof(variable_value_t));
+
+    outf.write((char *)&variables[j].n_factors, sizeof(num_edges_t));
+    outf.write((char *)&variables[j].n_start_i_factors, sizeof(num_edges_t));
+
+    outf.write((char *)&variables[j].n_start_i_tally, sizeof(num_samples_t));
+
+    /* XXX: Ignore last 3 components of Variable, might dump them anyways. */
+    /* XXX: What to do about domain_map, though? */
+  }
+
+  for (auto j = 0; j < size.num_factors; j++) {
+    outf.write((char *)&factors[j].id, sizeof(factor_id_t));
+    outf.write((char *)&factors[j].weight_id, sizeof(weight_id_t));
+    outf.write((char *)&factors[j].func_id, sizeof(factor_function_type_t));
+
+    outf.write((char *)&factors[j].n_variables, sizeof(factor_arity_t));
+    outf.write((char *)&factors[j].n_start_i_vif, sizeof(num_edges_t));
+
+    /* XXX: Also ignoring weight_ids in Factors */
+  }
+
+  for (auto j = 0; j < size.num_edges; j++) {
+    outf.write((char *)&compact_factors[j].id, sizeof(factor_id_t));
+    outf.write((char *)&compact_factors[j].func_id, sizeof(factor_function_type_t));
+
+    outf.write((char *)&compact_factors[j].n_variables, sizeof(factor_arity_t));
+    outf.write((char *)&compact_factors[j].n_start_i_vif, sizeof(num_edges_t));
+
+    outf.write((char *)&compact_factors_weightids[j], sizeof(weight_id_t));
+
+    outf.write((char *)&factor_ids[j], sizeof(factor_id_t));
+
+    outf.write((char *)&vifs[j].vid, sizeof(variable_id_t));
+    outf.write((char *)&vifs[j].n_position, sizeof(factor_arity_t));
+    outf.write((char *)&vifs[j].equal_to, sizeof(variable_value_t));
+  }
+
+  outf.close();
 }
+
+void CompactFactorGraph::resume(const std::string& snapshot_path) {
+  std::ifstream inf;
+
+  if (!does_directory_exist(snapshot_path)) {
+    std::cout << "Error while verifying snapshot directory path" << std::endl;
+    std::abort();
+  }
+
+  inf.open(snapshot_path + "/" + snapshot_filename,
+      std::ios::in | std::ios::binary);
+
+  /* Read metadata */
+  inf.read((char *)&size, sizeof(FactorGraphDescriptor));
+
+  /*
+   * Note that at this point, we have recovered cfg.n_var. Plus, assume
+   * that the CompactFactorGraph has been partially initialized through
+   * the graph.meta file, which should at least give us non-null arrays.
+   */
+  std::unique_ptr<Variable[]> _variables(new Variable[size.num_variables]);
+  for (auto j = 0; j < size.num_variables; j++) {
+    inf.read((char *)&_variables[j].id, sizeof(variable_id_t));
+    inf.read((char *)&_variables[j].domain_type, sizeof(variable_domain_type_t));
+
+    inf.read((char *)&_variables[j].is_evid, sizeof(int));
+    inf.read((char *)&_variables[j].is_observation, sizeof(int));
+    inf.read((char *)&_variables[j].cardinality, sizeof(num_variable_values_t));
+
+    inf.read((char *)&_variables[j].assignment_evid, sizeof(variable_value_t));
+    inf.read((char *)&_variables[j].assignment_free, sizeof(variable_value_t));
+
+    inf.read((char *)&_variables[j].n_factors, sizeof(num_edges_t));
+    inf.read((char *)&_variables[j].n_start_i_factors, sizeof(num_edges_t));
+
+    inf.read((char *)&_variables[j].n_start_i_tally, sizeof(num_samples_t));
+
+    /* XXX: Ignore last 3 components of Variable, might dump them anyways. */
+    /* XXX: What to do about domain_map, though? */
+  }
+  variables = std::move(_variables);
+
+  std::unique_ptr<Factor[]> _factors(new Factor[size.num_factors]);
+  for (auto j = 0; j < size.num_factors; j++) {
+    inf.read((char *)&_factors[j].id, sizeof(factor_id_t));
+    inf.read((char *)&_factors[j].weight_id, sizeof(weight_id_t));
+    inf.read((char *)&_factors[j].func_id, sizeof(factor_function_type_t));
+    inf.read((char *)&_factors[j].n_variables, sizeof(factor_arity_t));
+
+    inf.read((char *)&_factors[j].n_start_i_vif, sizeof(num_edges_t));
+
+    /* XXX: Also ignoring weight_ids in Factors */
+  }
+  factors = std::move(_factors);
+
+  std::unique_ptr<CompactFactor[]>
+    _compact_factors(new CompactFactor[size.num_edges]);
+  std::unique_ptr<weight_id_t[]>
+    _compact_factors_weightids(new weight_id_t[size.num_edges]);
+  std::unique_ptr<factor_id_t[]>
+    _factor_ids(new factor_id_t[size.num_edges]);
+  std::unique_ptr<VariableInFactor[]>
+    _vifs(new VariableInFactor[size.num_edges]);
+  for (auto j = 0; j < size.num_edges; j++) {
+    inf.read((char *)&_compact_factors[j].id, sizeof(factor_id_t));
+    inf.read((char *)&_compact_factors[j].func_id, sizeof(factor_function_type_t));
+    inf.read((char *)&_compact_factors[j].n_variables, sizeof(factor_arity_t));
+    inf.read((char *)&_compact_factors[j].n_start_i_vif, sizeof(num_edges_t));
+
+    inf.read((char *)&_compact_factors_weightids[j], sizeof(weight_id_t));
+
+    inf.read((char *)&_factor_ids[j], sizeof(factor_id_t));
+
+    inf.read((char *)&_vifs[j].vid, sizeof(variable_id_t));
+    inf.read((char *)&_vifs[j].n_position, sizeof(factor_arity_t));
+    inf.read((char *)&_vifs[j].equal_to, sizeof(variable_value_t));
+  }
+  compact_factors = std::move(_compact_factors);
+  compact_factors_weightids = std::move(_compact_factors_weightids);
+  factor_ids = std::move(_factor_ids);
+  vifs = std::move(_vifs);
+
+  /*
+   * NOTE: We don't write the weights in `infrs` on purpose, since they're
+   * going to be recovered by a separate workflow.
+   */
+
+  return;
+}
+
 
 }  // namespace dd

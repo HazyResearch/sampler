@@ -105,10 +105,6 @@ int gibbs(const dd::CmdParser &args) {
   dw.inference();
   dw.aggregate_results_and_dump();
 
-  if (args.should_use_snapshot) {
-    gibbs.do_checkpoint(args.should_be_quiet);
-  }
-
   return 0;
 }
 

@@ -47,9 +47,11 @@ FactorGraph::FactorGraph(const FactorGraphDescriptor &capacity)
       factors(new RawFactor[capacity.num_factors]),
       weights(new Weight[capacity.num_weights]) {}
 
-CompactFactorGraph::CompactFactorGraph(const FactorGraph &fg)
-    : CompactFactorGraph(fg.size) {
+CompactFactorGraph::CompactFactorGraph(const FactorGraph &fg) {
   num_edges_t i_edge = 0;
+
+  // Transfer size information from raw factor graph.
+  size = fg.size;
 
   // For each factor, put the variables sorted within each factor in an array.
   for (factor_id_t i = 0; i < fg.size.num_factors; ++i) {
@@ -127,14 +129,13 @@ void FactorGraph::safety_check() {
   }
 }
 
-CompactFactorGraph::CompactFactorGraph(const FactorGraphDescriptor &size)
-    : size(size),
-      variables(new Variable[size.num_variables]),
-      factors(new Factor[size.num_factors]),
-      compact_factors(new CompactFactor[size.num_edges]),
-      compact_factors_weightids(new weight_id_t[size.num_edges]),
-      factor_ids(new factor_id_t[size.num_edges]),
-      vifs(new VariableInFactor[size.num_edges]) {}
+CompactFactorGraph::CompactFactorGraph()
+    : variables(nullptr),
+      factors(nullptr),
+      compact_factors(nullptr),
+      compact_factors_weightids(nullptr),
+      factor_ids(nullptr),
+      vifs(nullptr) {}
 
 CompactFactorGraph::CompactFactorGraph(const CompactFactorGraph &other)
     : CompactFactorGraph(other.size) {

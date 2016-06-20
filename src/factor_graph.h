@@ -46,7 +46,11 @@ std::ostream& operator<<(std::ostream& stream,
                          const FactorGraphDescriptor& size);
 
 /**
- * Class for a factor graph
+ * Class for a (raw) factor graph.
+ *
+ * This representation of a factor graph is used for saving to and loading from
+ * files. Some tools are provided to inspect the binary representation of this
+ * factor graph into a more human-friendly TSV format.
  */
 class FactorGraph {
  public:
@@ -97,18 +101,31 @@ inline std::ostream& operator<<(std::ostream& out, FactorGraph const& fg) {
   return out;
 }
 
+/**
+ * A factor graph represented in a way more suitable for Gibbs sampling.
+ *
+ * This class also provides facilities to persist an instance of a
+ * CompactFactorGraph into disk for the purposes of checkpointing and resuming
+ * a Gibbs sampling.
+ */
 class CompactFactorGraph {
+ private:
+  const std::string snapshot_filename = "graph.checkpoint";
+
  public:
   FactorGraphDescriptor size;
 
   std::unique_ptr<Variable[]> variables;
   std::unique_ptr<Factor[]> factors;
 
-  // For each edge, we store the factor, weight id, factor id, and the variable,
-  // in the same index of seperate arrays. The edges are ordered so that the
-  // edges for a variable is in a continuous region (sequentially).
-  // This allows us to access factors given variables, and access variables
-  // given factors faster.
+  /*
+   * For each edge, we store the factor, weight id, factor id, and the
+   * variable, in the same index of seperate arrays. The edges are ordered so
+   * that the edges for a variable is in a continuous region (sequentially).
+   *
+   * This allows us to access factors given variables, and access variables
+   * given factors faster.
+   */
   std::unique_ptr<CompactFactor[]> compact_factors;
   std::unique_ptr<weight_id_t[]> compact_factors_weightids;
   std::unique_ptr<factor_id_t[]> factor_ids;
@@ -116,8 +133,7 @@ class CompactFactorGraph {
 
   /**
    * Compiles given factor graph into a compact format that's more appropriate
-   * for
-   * inference and learning.
+   * for inference and learning.
    *
    * Since the original factor graph initializes the new factor graph,
    * it also has to transfer the variable, factor, and weight counts,
@@ -126,7 +142,7 @@ class CompactFactorGraph {
   CompactFactorGraph(const FactorGraph& fg);
 
   /* Produces an empty factor graph to be initialized by resume() */
-  CompactFactorGraph(const FactorGraphDescriptor& size);
+  CompactFactorGraph();
 
   // copy constructor
   CompactFactorGraph(const CompactFactorGraph& other);
@@ -144,8 +160,34 @@ class CompactFactorGraph {
                                         variable_value_t proposal);
 
   /**
+   * Checkpoints the compact factor graph into binary files
+   *
+   * The binary snapshot files are stored in the snapshot directory path. A
+   * path to a directory, instead of a regular file must be supplied to
+   * anticipate needing to use multiple files for the purposes of resuming and
+   * checkpointing using mmap().
+   *
+   * @param[in] snapshot_path
+   *   The path to the snapshot directory. If it doesn't exist, it will be
+   *   created.
+   */
+  void checkpoint(const std::string& snapshot_path);
+
+  /**
+   * The inverse operation of checkpoint.
+   *
+   * @param[in] snapshot_path
+   *   The path to the snapshot directory. If it doesn't exist, it will be
+   *   created.
+   *
+   * @see CompactFactorGraph::checkpoint.
+   */
+  void resume(const std::string& snapshot_path);
+
+  /**
    * Given a variable, updates the weights associated with the factors that
    * connect to the variable.
+   *
    * Used in learning phase, after sampling one variable,
    * update corresponding weights (stochastic gradient descent).
    */

@@ -21,11 +21,11 @@ const std::string get_copy_filename(const std::string &, int);
 // positive and id 8 negative.
 class CheckpointTest : public testing::Test {
  protected:
-  dd::CompiledFactorGraph cfg;
+  std::unique_ptr<CompactFactorGraph> cfg;
   std::string checkpoint_filename;
 
-  CheckpointTest()
-      : cfg(dd::CompiledFactorGraph(18, 18, 1, 18)),
+  CheckpointTest(std::unique_ptr<FactorGraph> fg)
+      : cfg(nullptr),
         checkpoint_filename("graph.checkpoint") {}
 
   virtual void SetUp() {
@@ -52,14 +52,18 @@ class CheckpointTest : public testing::Test {
     };
     dd::CmdParser cmd_parser(sizeof(argv) / sizeof(*argv), argv);
 
-    dd::FactorGraph fg(18, 18, 1, 18);
-    fg.load_variables(cmd_parser.variable_file);
-    fg.load_weights(cmd_parser.weight_file);
-    fg.load_domains(cmd_parser.domain_file);
-    fg.load_factors(cmd_parser.factor_file);
-    fg.safety_check();
+    FactorGraphDescriptor meta = read_meta("./test/biased_coin/graph.meta");
 
-    fg.compile(cfg);
+    std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
+
+    fg->load_variables(cmd_parser.variable_file);
+    fg->load_weights(cmd_parser.weight_file);
+    fg->load_domains(cmd_parser.domain_file);
+    fg->load_factors(cmd_parser.factor_file);
+    fg->safety_check();
+
+    std::unique_ptr<CompactFactorGraph> _cfg(new CompactFactorGraph(*fg));
+    cfg = _cfg;
   }
 
   virtual void TearDown() {
@@ -75,12 +79,12 @@ class CheckpointTest : public testing::Test {
  */
 TEST_F(CheckpointTest, checkpoint_and_resume) {
   /* Sort of gives you an idea how to call checkpoint() */
-  std::vector<CompiledFactorGraph> cfgs;
+  std::vector<CompactFactorGraph> cfgs;
   cfgs.push_back(cfg);
   checkpoint(checkpoint_filename, cfgs);
 
   /* And an idea on how to call resume() */
-  CompiledFactorGraph resumed_cfg(18, 18, 1, 18);
+  CompactFactorGraph resumed_cfg(18, 18, 1, 18);
   resume(checkpoint_filename, 0, resumed_cfg);
 
   ASSERT_EQ(cfg.n_var, resumed_cfg.n_var);
