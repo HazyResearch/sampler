@@ -141,8 +141,8 @@ class CompactFactorGraph {
    */
   CompactFactorGraph(const FactorGraph& fg);
 
-  /* Produces an empty factor graph to be initialized by resume() */
-  CompactFactorGraph();
+  /* Constructor to load from binary snapshot files */
+  CompactFactorGraph(const FactorGraphDescriptor& size);
 
   // copy constructor
   CompactFactorGraph(const CompactFactorGraph& other);

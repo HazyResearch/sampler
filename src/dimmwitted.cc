@@ -105,9 +105,10 @@ int learn(const dd::CmdParser &opts) {
 
   fg->load_weights(opts.weight_file);
 
-  DimmWitted dw(
-      std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph()),
-      fg->weights.get(), opts);
+  std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
+  cfg->resume(opts.snapshot_path);
+
+  DimmWitted dw(std::move(cfg), fg->weights.get(), opts);
 
   fg.release();
 
@@ -138,9 +139,10 @@ int inference(const dd::CmdParser &opts) {
 
   fg->load_weights(opts.weight_file);
 
-  DimmWitted dw(
-      std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph()),
-      fg->weights.get(), opts);
+  std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
+  cfg->resume(opts.snapshot_path);
+
+  DimmWitted dw(std::move(cfg), fg->weights.get(), opts);
 
   fg.release();
 
@@ -199,6 +201,7 @@ int gibbs(const dd::CmdParser &args) {
   DimmWitted dw(
       std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph(*fg)),
       fg->weights.get(), args);
+  std::cout << "I'm here debugging again" << std::endl;
 
   // Explicitly drop the raw factor graph used only during loading
   fg.release();
