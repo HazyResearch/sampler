@@ -44,8 +44,7 @@ FactorGraph::FactorGraph(const FactorGraphDescriptor &capacity)
     : capacity(capacity),
       size(),
       variables(new RawVariable[capacity.num_variables]),
-      factors(new RawFactor[capacity.num_factors]),
-      weights(new Weight[capacity.num_weights]) {}
+      factors(new RawFactor[capacity.num_factors]) {}
 
 CompactFactorGraph::CompactFactorGraph(const FactorGraph &fg)
     : CompactFactorGraph(fg.size) {
@@ -122,12 +121,9 @@ void FactorGraph::safety_check() {
   for (factor_id_t i = 0; i < size.num_factors; ++i) {
     assert(this->factors[i].id == i);
   }
-  for (weight_id_t i = 0; i < size.num_weights; ++i) {
-    assert(this->weights[i].id == i);
-  }
 }
 
-CompactFactorGraph::CompactFactorGraph(const FactorGraphDescriptor& size)
+CompactFactorGraph::CompactFactorGraph(const FactorGraphDescriptor &size)
     : size(size),
       variables(new Variable[size.num_variables]),
       factors(new Factor[size.num_factors]),

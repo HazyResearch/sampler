@@ -33,7 +33,10 @@ class FactorGraphDescriptor {
   /** number of edges */
   num_edges_t num_edges;
 
-  /** number of all weights */
+  /**
+   * number of weights. this is still kept here to maintain format of meta,
+   * and is also useful when loading weights
+   */
   num_weights_t num_weights;
 
   /** number of evidence variables */
@@ -59,10 +62,9 @@ class FactorGraph {
   /** Actual count of things */
   FactorGraphDescriptor size;
 
-  // variables, factors, weights
+  // variables, factor
   std::unique_ptr<RawVariable[]> variables;
   std::unique_ptr<RawFactor[]> factors;
-  std::unique_ptr<Weight[]> weights;
 
   /**
    * Constructs a new factor graph with given number number of variables,
@@ -83,7 +85,6 @@ class FactorGraph {
    * Where Step 3 seems to be obsolete, since we're reading in variables and
    * weights that are in order.
    */
-  void load_weights(const std::string& filename);
   void load_variables(const std::string& filename);
   void load_factors(const std::string& filename);
   void load_domains(const std::string& filename);

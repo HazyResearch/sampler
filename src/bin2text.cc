@@ -143,10 +143,11 @@ void dump_factors(const FactorGraph &fg, const std::string &filename) {
   }
 }
 
-void dump_weights(const FactorGraph &fg, const std::string &filename) {
+void dump_weights(const num_weights_t num_weights, Weight *const weights,
+                  const std::string &filename) {
   std::ofstream fout(filename);
-  for (weight_id_t i = 0; i < fg.size.num_weights; ++i) {
-    Weight &w = fg.weights[i];
+  for (weight_id_t i = 0; i < num_weights; ++i) {
+    Weight &w = weights[i];
     // weight id
     fout << w.id;
     // whether it's fixed
@@ -177,16 +178,20 @@ void dump_factorgraph(const FactorGraph &fg, const std::string &output_dir) {
   dump_variables(fg, output_dir + "/variables.tsv");
   dump_domains(fg, output_dir + "/domains.tsv");
   dump_factors(fg, output_dir + "/factors.tsv");
-  dump_weights(fg, output_dir + "/weights.tsv");
   dump_meta(fg, output_dir + "/graph.meta");
 }
 
 int bin2text(const CmdParser &cmd_parser) {
   FactorGraphDescriptor meta = read_meta(cmd_parser.fg_file);
+  // load weights
+  std::unique_ptr<Weight[]> weights =
+      read_weights(meta.num_weights, cmd_parser.weight_file);
+  dump_weights(meta.num_weights, weights.get(),
+               cmd_parser.output_folder + "/weights.tsv");
+
   // load factor graph
   FactorGraph fg(meta);
   fg.load_variables(cmd_parser.variable_file);
-  fg.load_weights(cmd_parser.weight_file);
   fg.load_domains(cmd_parser.domain_file);
   fg.load_factors(cmd_parser.factor_file);
   fg.safety_check();

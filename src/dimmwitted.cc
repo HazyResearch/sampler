@@ -19,11 +19,11 @@ int dw(int argc, const char *const argv[]) {
   // available modes
   const std::map<std::string, int (*)(const CmdParser &)> MODES = {
       {"gibbs", gibbs},  // to do the learning and inference with Gibbs sampling
-      {"init", init},  // to instantiate compact factor graph and weights
+      {"init", init},    // to instantiate compact factor graph and weights
       {"learn", learn},  // to perform learning with Gibbs sampling
       {"inference", inference},  // to perform inference with Gibbs sampling
-      {"text2bin", text2bin},  // to generate binary factor graphs from TSV
-      {"bin2text", bin2text},  // to dump TSV of binary factor graphs
+      {"text2bin", text2bin},    // to generate binary factor graphs from TSV
+      {"bin2text", bin2text},    // to dump TSV of binary factor graphs
   };
 
   // parse command-line arguments
@@ -57,16 +57,21 @@ int init(const dd::CmdParser &opts) {
     std::cout << meta << std::endl;
   }
 
-  // Run on NUMA node 0
+  // Run on NUMA node 0.
+  // XXX: Doesn't matter on initialization, though.
   numa_run_on_node(0);
   numa_set_localalloc();
+
+  dprintf("Loading weights...\n");
+  std::unique_ptr<Weight[]> weights =
+      read_weights(meta.num_weights, opts.weight_file);
+  // XXX: Safety check on weights?
 
   // Load factor graph
   dprintf("Initializing factor graph...\n");
   std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
 
   fg->load_variables(opts.variable_file);
-  fg->load_weights(opts.weight_file);
   fg->load_domains(opts.domain_file);
   fg->load_factors(opts.factor_file);
   fg->safety_check();
@@ -79,12 +84,9 @@ int init(const dd::CmdParser &opts) {
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(*fg));
   cfg->dump(opts.snapshot_path);
 
-  // Initialize Gibbs sampling application.
-  DimmWitted dw(std::move(cfg),
-      fg->weights.get(), opts);
-
-  // Explicitly drop the raw factor graph used only during loading
-  fg.release();
+  // Initialize Gibbs sampling application. Required even for initialization
+  // since n_datacopy is used in here.
+  DimmWitted dw(std::move(cfg), std::move(weights), opts);
 
   // In the very beginning, checkpointing the weights is not required since
   // the weights should be equal to the one defined in the weights file.
@@ -99,22 +101,23 @@ int learn(const dd::CmdParser &opts) {
    * thinks. I'm going to create a factor graph to load the weights array, but
    * only for that purpose. At least until Weight[] ownership is clarified.
    */
-  std::cout << "Performing learning on persisted compact factor graph...";
+  std::cout << "Performing learning on persisted compact factor graph..."
+            << std::endl;
   FactorGraphDescriptor meta = read_meta(opts.fg_file);
-  std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
 
-  fg->load_weights(opts.weight_file);
+  std::cout << "Loading weights..." << std::endl;
+  std::unique_ptr<Weight[]> weights =
+      read_weights(meta.num_weights, opts.weight_file);
 
   /*
    * Restore the compact factor graph from file. Still requires the meta file,
    * as checkpoint() doesn't write the FactorGraphDescriptor.
    */
+  dprintf("Resuming factor graph from file...\n");
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
   cfg->resume(opts.snapshot_path);
 
-  DimmWitted dw(std::move(cfg), fg->weights.get(), opts);
-
-  fg.release();
+  DimmWitted dw(std::move(cfg), std::move(weights), opts);
 
   // Restore the factor graph assignments and weights.
   dw.resume();
@@ -126,6 +129,10 @@ int learn(const dd::CmdParser &opts) {
   dw.dump_weights();
 
   // Checkpoint the state, but this time, checkpoint the weights as well.
+  // XXX: Seems wrong to use dw.weights.get() if we're using unique_ptr.
+  checkpoint_weights(opts.weight_file + ".out", meta.num_weights,
+                     dw.weights.get());
+
   dw.checkpoint(true);
 
   return 0;
@@ -139,9 +146,10 @@ int inference(const dd::CmdParser &opts) {
    */
   std::cout << "Performing inference on persisted compact factor graph...";
   FactorGraphDescriptor meta = read_meta(opts.fg_file);
-  std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
 
-  fg->load_weights(opts.weight_file);
+  std::cout << "Loading weights..." << std::endl;
+  std::unique_ptr<Weight[]> weights =
+      read_weights(meta.num_weights, opts.weight_file);
 
   /*
    * Restore the compact factor graph from file. Still requires the meta file,
@@ -150,9 +158,7 @@ int inference(const dd::CmdParser &opts) {
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
   cfg->resume(opts.snapshot_path);
 
-  DimmWitted dw(std::move(cfg), fg->weights.get(), opts);
-
-  fg.release();
+  DimmWitted dw(std::move(cfg), std::move(weights), opts);
 
   // Restore the factor graph assignments and weights.
   dw.resume();
@@ -189,12 +195,15 @@ int gibbs(const dd::CmdParser &args) {
   numa_run_on_node(0);
   numa_set_localalloc();
 
+  // Load weights
+  std::unique_ptr<Weight[]> weights =
+      read_weights(meta.num_weights, args.weight_file);
+
   // Load factor graph
   dprintf("Initializing factor graph...\n");
   std::unique_ptr<FactorGraph> fg(new FactorGraph(meta));
 
   fg->load_variables(args.variable_file);
-  fg->load_weights(args.weight_file);
   fg->load_domains(args.domain_file);
   fg->load_factors(args.factor_file);
   std::cout << "Factor graph loaded:\t" << fg->size << std::endl;
@@ -208,7 +217,7 @@ int gibbs(const dd::CmdParser &args) {
   // Initialize Gibbs sampling application.
   DimmWitted dw(
       std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph(*fg)),
-      fg->weights.get(), args);
+      std::move(weights), args);
   std::cout << "I'm here debugging again" << std::endl;
 
   // Explicitly drop the raw factor graph used only during loading
@@ -228,8 +237,8 @@ int gibbs(const dd::CmdParser &args) {
 }
 
 DimmWitted::DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg,
-                       const Weight weights[], const CmdParser &opts)
-    : weights(weights), opts(opts) {
+                       std::unique_ptr<Weight[]> weights, const CmdParser &opts)
+    : weights(std::move(weights)), opts(opts) {
   n_numa_nodes = numa_max_node() + 1;
   if (opts.n_datacopy > 0 && opts.n_datacopy < n_numa_nodes) {
     n_numa_nodes = opts.n_datacopy;
@@ -255,7 +264,10 @@ DimmWitted::DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg,
                    :
                    // then, make a copy for the rest
                 new CompactFactorGraph(samplers[0].fg)),
-        weights, n_thread_per_numa, i, opts));
+        // XXX: Should we use weights.get() here, or could we possibly use
+        // a shared_ptr so that each of the GibbsSampler can read to make
+        // copies of weights?
+        weights.get(), n_thread_per_numa, i, opts));
   }
 }
 
@@ -391,7 +403,9 @@ void DimmWitted::checkpoint(bool should_include_weights) {
 
   for (size_t i = 0; i < n_numa_nodes; ++i) {
     std::ofstream assignments_binary_out;
-    assignments_binary_out.open(opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i), std::ios::binary | std::ios::out);
+    assignments_binary_out.open(
+        opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i),
+        std::ios::binary | std::ios::out);
 
     samplers[i].infrs.dump_assignments_in_binary(assignments_binary_out);
   }
@@ -401,10 +415,13 @@ void DimmWitted::checkpoint(bool should_include_weights) {
 
 void DimmWitted::resume() {
   for (size_t i = 0; i < n_numa_nodes; ++i) {
-    samplers[i].infrs.load_weights(weights);
+    // XXX: Same issue here, should use shared_ptr?
+    samplers[i].infrs.load_weights(weights.get());
 
     std::ifstream assignments_binary_in;
-    assignments_binary_in.open(opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i), std::ios::binary | std::ios::in);
+    assignments_binary_in.open(
+        opts.snapshot_path + "/graph.assignments.out.part-" + std::to_string(i),
+        std::ios::binary | std::ios::in);
 
     samplers[i].infrs.load_assignments(assignments_binary_in);
   }

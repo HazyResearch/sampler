@@ -120,7 +120,8 @@ void InferenceResult::load_weights(const Weight weights[]) {
   }
 }
 
-// FIXME(igozali): This might not actually be needed as per our discussion last Friday (Fri Jun 17, 2016)
+// FIXME(igozali): This might not actually be needed as per our discussion last
+// Friday (Fri Jun 17, 2016)
 void InferenceResult::load_assignments(std::ifstream &binary_in) {
   implement_me();
 }
@@ -131,7 +132,8 @@ void InferenceResult::dump_weights_in_text(std::ostream &text_output) const {
   }
 }
 
-void InferenceResult::dump_weights_in_binary(std::ofstream &binary_output) const {
+void InferenceResult::dump_weights_in_binary(
+    std::ofstream &binary_output) const {
   for (weight_id_t j = 0; j < nweights; ++j) {
     char isfixed_char = weights_isfixed[j] ? 1 : 0;
 
@@ -142,7 +144,8 @@ void InferenceResult::dump_weights_in_binary(std::ofstream &binary_output) const
 }
 
 // FIXME: See note on load_assignments.
-void InferenceResult::dump_assignments_in_binary(std::ofstream &binary_output) const {
+void InferenceResult::dump_assignments_in_binary(
+    std::ofstream &binary_output) const {
   implement_me();
 }
 

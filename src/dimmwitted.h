@@ -30,7 +30,7 @@ int inference(const CmdParser& cmd_parser);
  */
 class DimmWitted {
  public:
-  const Weight* const weights;  // TODO clarify ownership
+  std::unique_ptr<Weight[]> weights;
 
   // command line parser
   const CmdParser& opts;  // TODO clarify ownership
@@ -52,8 +52,8 @@ class DimmWitted {
    * n_datacopy number of factor graph copies. n_datacopy = 1 means only
    * keeping one factor graph.
    */
-  DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg, const Weight weights[],
-             const CmdParser& opts);
+  DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg,
+             std::unique_ptr<Weight[]> weights, const CmdParser& opts);
 
   DimmWitted(const Weight weights[], const CmdParser& opts);
 
@@ -94,7 +94,8 @@ class DimmWitted {
   void load_weights();
 
   /**
-   * Checkpoints the learned weights, and the assignments in each of the sampler.
+   * Checkpoints the learned weights, and the assignments in each of the
+   * sampler.
    */
   void checkpoint(bool should_include_weights);
 

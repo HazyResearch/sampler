@@ -33,7 +33,9 @@ FactorGraphDescriptor read_meta(const std::string &meta_file) {
   return meta;
 }
 
-void FactorGraph::load_weights(const std::string &filename) {
+std::unique_ptr<Weight[]> read_weights(num_weights_t num_weights,
+                                       const std::string &filename) {
+  std::unique_ptr<Weight[]> weights(new Weight[num_weights]);
   std::ifstream file(filename, std::ios::binary);
   num_weights_t count = 0;
   while (file && file.peek() != EOF) {
@@ -48,7 +50,29 @@ void FactorGraph::load_weights(const std::string &filename) {
     weights[wid] = Weight(wid, initial_value, isfixed);
     ++count;
   }
-  size.num_weights += count;
+  assert(count == num_weights);
+
+  // Allowed by the compiler, see http://stackoverflow.com/questions/4316727
+  return weights;
+}
+
+void checkpoint_weights(const std::string &weights_file,
+                        num_weights_t num_weights,
+                        const Weight *const weights) {
+  std::ofstream weights_binary_out(weights_file + ".out", std::ios::binary);
+
+  // First sampler holds the merged weights after learning.
+  //
+  // Ideally, this should be LearningResult to emphasize the fact
+  // that we're calling checkpoint only after learning is called.
+  for (weight_id_t j = 0; j < num_weights; ++j) {
+    char isfixed_char = weights[j].isfixed ? 1 : 0;
+
+    weights_binary_out.write((char *)&j, sizeof(weight_id_t));
+    weights_binary_out.write((char *)&isfixed_char, sizeof(char));
+    weights_binary_out.write((char *)&weights[j].weight,
+                             sizeof(weight_value_t));
+  }
 }
 
 void FactorGraph::load_variables(const std::string &filename) {
@@ -212,13 +236,11 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
 
   // XXX: We officially do NOT support Windows.
   std::ofstream outf(snapshot_path + "/" + snapshot_filename,
-            std::ios::out | std::ios::binary);
+                     std::ios::out | std::ios::binary);
   if (!outf.is_open()) {
-    std::cout << "Failed to create snapshot file" << snapshot_path
-              << std::endl;
+    std::cout << "Failed to create snapshot file" << snapshot_path << std::endl;
     std::abort();
   }
-
 
   for (auto j = 0; j < size.num_variables; j++) {
     outf.write((char *)&variables[j].id, sizeof(variable_id_t));
@@ -277,7 +299,7 @@ void CompactFactorGraph::resume(const std::string &snapshot_path) {
   constexpr char snapshot_filename[] = "graph.checkpoint";
 
   std::ifstream inf(snapshot_path + "/" + snapshot_filename,
-           std::ios::in | std::ios::binary);
+                    std::ios::in | std::ios::binary);
   if (!inf.is_open()) {
     std::cout << "Error while opening snapshot file " << std::endl;
     std::abort();
@@ -290,8 +312,7 @@ void CompactFactorGraph::resume(const std::string &snapshot_path) {
    */
   for (auto j = 0; j < size.num_variables; j++) {
     inf.read((char *)&variables[j].id, sizeof(variable_id_t));
-    inf.read((char *)&variables[j].domain_type,
-             sizeof(variable_domain_type_t));
+    inf.read((char *)&variables[j].domain_type, sizeof(variable_domain_type_t));
 
     inf.read((char *)&variables[j].is_evid, sizeof(int));
     inf.read((char *)&variables[j].is_observation, sizeof(int));

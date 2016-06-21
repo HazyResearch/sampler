@@ -116,6 +116,12 @@ inline std::istream &read_be(std::istream &input, T &value) {
  */
 FactorGraphDescriptor read_meta(const std::string &meta_file);
 
+std::unique_ptr<Weight[]> read_weights(num_weights_t num_weights,
+                                       const std::string &filename);
+
+void checkpoint_weights(const std::string &filename, num_weights_t num_weights,
+                        const Weight *const weights);
+
 }  // namespace dd
 
 #endif  // DIMMWITTED_BINARY_FORMAT_H_
