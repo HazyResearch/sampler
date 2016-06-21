@@ -242,7 +242,7 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
     std::abort();
   }
 
-  for (auto j = 0; j < size.num_variables; j++) {
+  for (num_variables_t j = 0; j < size.num_variables; j++) {
     outf.write((char *)&variables[j].id, sizeof(variable_id_t));
     outf.write((char *)&variables[j].domain_type,
                sizeof(variable_domain_type_t));
@@ -264,7 +264,7 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
     /* XXX: What to do about domain_map, though? */
   }
 
-  for (auto j = 0; j < size.num_factors; j++) {
+  for (num_factors_t j = 0; j < size.num_factors; j++) {
     outf.write((char *)&factors[j].id, sizeof(factor_id_t));
     outf.write((char *)&factors[j].weight_id, sizeof(weight_id_t));
     outf.write((char *)&factors[j].func_id, sizeof(factor_function_type_t));
@@ -275,7 +275,7 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
     /* XXX: Also ignoring weight_ids in Factors */
   }
 
-  for (auto j = 0; j < size.num_edges; j++) {
+  for (num_edges_t j = 0; j < size.num_edges; j++) {
     outf.write((char *)&compact_factors[j].id, sizeof(factor_id_t));
     outf.write((char *)&compact_factors[j].func_id,
                sizeof(factor_function_type_t));
@@ -310,7 +310,7 @@ void CompactFactorGraph::resume(const std::string &snapshot_path) {
    * that the CompactFactorGraph has been partially initialized through
    * the graph.meta file, which should at least give us non-null arrays.
    */
-  for (auto j = 0; j < size.num_variables; j++) {
+  for (num_variables_t j = 0; j < size.num_variables; j++) {
     inf.read((char *)&variables[j].id, sizeof(variable_id_t));
     inf.read((char *)&variables[j].domain_type, sizeof(variable_domain_type_t));
 
@@ -330,7 +330,7 @@ void CompactFactorGraph::resume(const std::string &snapshot_path) {
     /* XXX: What to do about domain_map, though? */
   }
 
-  for (auto j = 0; j < size.num_factors; j++) {
+  for (num_factors_t j = 0; j < size.num_factors; j++) {
     inf.read((char *)&factors[j].id, sizeof(factor_id_t));
     inf.read((char *)&factors[j].weight_id, sizeof(weight_id_t));
     inf.read((char *)&factors[j].func_id, sizeof(factor_function_type_t));
@@ -341,7 +341,7 @@ void CompactFactorGraph::resume(const std::string &snapshot_path) {
     /* XXX: Also ignoring weight_ids in Factors */
   }
 
-  for (auto j = 0; j < size.num_edges; j++) {
+  for (num_edges_t j = 0; j < size.num_edges; j++) {
     inf.read((char *)&compact_factors[j].id, sizeof(factor_id_t));
     inf.read((char *)&compact_factors[j].func_id,
              sizeof(factor_function_type_t));
