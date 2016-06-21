@@ -109,9 +109,6 @@ inline std::ostream& operator<<(std::ostream& out, FactorGraph const& fg) {
  * a Gibbs sampling.
  */
 class CompactFactorGraph {
- private:
-  const std::string snapshot_filename = "graph.checkpoint";
-
  public:
   FactorGraphDescriptor size;
 

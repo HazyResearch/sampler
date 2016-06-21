@@ -208,8 +208,10 @@ void FactorGraph::load_domains(const std::string &filename) {
  * were made in much more detail. I will do that when I clean up the code.
  */
 void CompactFactorGraph::dump(const std::string &snapshot_path) {
+  constexpr char snapshot_filename[] = "graph.checkpoint";
+
   // XXX: We officially do NOT support Windows.
-  std::ofstream outf(snapshot_path + "/" + this->snapshot_filename,
+  std::ofstream outf(snapshot_path + "/" + snapshot_filename,
             std::ios::out | std::ios::binary);
   if (!outf.is_open()) {
     std::cout << "Failed to create snapshot file" << snapshot_path
@@ -272,6 +274,8 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
 }
 
 void CompactFactorGraph::resume(const std::string &snapshot_path) {
+  constexpr char snapshot_filename[] = "graph.checkpoint";
+
   std::ifstream inf(snapshot_path + "/" + snapshot_filename,
            std::ios::in | std::ios::binary);
   if (!inf.is_open()) {
