@@ -105,6 +105,10 @@ int learn(const dd::CmdParser &opts) {
 
   fg->load_weights(opts.weight_file);
 
+  /*
+   * Restore the compact factor graph from file. Still requires the meta file,
+   * as checkpoint() doesn't write the FactorGraphDescriptor.
+   */
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
   cfg->resume(opts.snapshot_path);
 
@@ -139,6 +143,10 @@ int inference(const dd::CmdParser &opts) {
 
   fg->load_weights(opts.weight_file);
 
+  /*
+   * Restore the compact factor graph from file. Still requires the meta file,
+   * as checkpoint() doesn't write the FactorGraphDescriptor.
+   */
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(meta));
   cfg->resume(opts.snapshot_path);
 

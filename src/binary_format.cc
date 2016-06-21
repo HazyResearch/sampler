@@ -201,34 +201,6 @@ void FactorGraph::load_domains(const std::string &filename) {
 //}
 
 /**
- * Helper method to create directories in this C++ land.
- */
-const bool create_directory(const std::string &path) {
-  if (mkdir(path.c_str(), S_IRWXU | S_IROTH | S_IXOTH | S_IRGRP | S_IXGRP) <
-      0) {
-    perror("mkdir failed");
-    return false;
-  }
-
-  return true;
-}
-
-const bool does_directory_exist(const std::string &path) {
-  struct stat stbuf;
-  if (stat(path.c_str(), &stbuf) < 0) {
-    perror("stat failed");
-    return false;
-  }
-
-  if (!(stbuf.st_mode & S_IFDIR)) {
-    std::cout << "path " << path << " is not a directory!" << std::endl;
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * For now, assume we use the checkpointing model where we write each factor
  * graph into a separate file.
  *
@@ -236,15 +208,15 @@ const bool does_directory_exist(const std::string &path) {
  * were made in much more detail. I will do that when I clean up the code.
  */
 void CompactFactorGraph::dump(const std::string &snapshot_path) {
-  if (!create_directory(snapshot_path)) {
-    std::cout << "Failed to create snapshot directory " << snapshot_path
+  // XXX: We officially do NOT support Windows.
+  std::ofstream outf(snapshot_path + "/" + this->snapshot_filename,
+            std::ios::out | std::ios::binary);
+  if (!outf.is_open()) {
+    std::cout << "Failed to create snapshot file" << snapshot_path
               << std::endl;
     std::abort();
   }
 
-  // XXX: We officially do NOT support Windows.
-  std::ofstream outf(snapshot_path + "/" + this->snapshot_filename,
-            std::ios::out | std::ios::binary);
 
   for (auto j = 0; j < size.num_variables; j++) {
     outf.write((char *)&variables[j].id, sizeof(variable_id_t));
@@ -300,13 +272,12 @@ void CompactFactorGraph::dump(const std::string &snapshot_path) {
 }
 
 void CompactFactorGraph::resume(const std::string &snapshot_path) {
-  if (!does_directory_exist(snapshot_path)) {
-    std::cout << "Error while verifying snapshot directory path" << std::endl;
-    std::abort();
-  }
-
   std::ifstream inf(snapshot_path + "/" + snapshot_filename,
            std::ios::in | std::ios::binary);
+  if (!inf.is_open()) {
+    std::cout << "Error while opening snapshot file " << std::endl;
+    std::abort();
+  }
 
   /*
    * Note that at this point, we have recovered cfg.n_var. Plus, assume
