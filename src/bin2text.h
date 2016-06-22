@@ -14,7 +14,7 @@ void dump_variables(const FactorGraph& fg, const std::string& filename);
 void dump_domains(const FactorGraph& fg, const std::string& filename);
 void dump_factors(const FactorGraph& fg, const std::string& filename);
 
-void dump_weights(const num_weights_t num_weights, Weight* const weights,
+void dump_weights(const num_weights_t num_weights, Weight const weights[],
                   const std::string& filename);
 
 int bin2text(const CmdParser& cmd_parser);

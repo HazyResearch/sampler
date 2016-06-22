@@ -143,11 +143,11 @@ void dump_factors(const FactorGraph &fg, const std::string &filename) {
   }
 }
 
-void dump_weights(const num_weights_t num_weights, Weight *const weights,
+void dump_weights(const num_weights_t num_weights, const Weight weights[],
                   const std::string &filename) {
   std::ofstream fout(filename);
   for (weight_id_t i = 0; i < num_weights; ++i) {
-    Weight &w = weights[i];
+    const Weight &w = weights[i];
     // weight id
     fout << w.id;
     // whether it's fixed
