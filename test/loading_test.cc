@@ -37,7 +37,6 @@ class LoadingTest : public testing::Test {
     };
     CmdParser cmd_parser(sizeof(argv) / sizeof(*argv), argv);
     fg.load_variables(cmd_parser.variable_file);
-    fg.load_weights(cmd_parser.weight_file);
     fg.load_domains(cmd_parser.domain_file);
     fg.load_factors(cmd_parser.factor_file);
     fg.safety_check();
@@ -50,7 +49,7 @@ TEST_F(LoadingTest, load_factor_graph) {
   EXPECT_EQ(fg.size.num_variables_evidence, 9);
   EXPECT_EQ(fg.size.num_variables_query, 9);
   EXPECT_EQ(fg.size.num_factors, 18);
-  EXPECT_EQ(fg.size.num_weights, 1);
+  // EXPECT_EQ(fg.size.num_weights, 1);
 
   /* Due to how loading works in this new model, the factor graph is not
    * supposed to count the edges during loading. This only happens after

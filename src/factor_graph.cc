@@ -111,7 +111,11 @@ void FactorGraph::safety_check() {
   assert(capacity.num_variables == size.num_variables);
   assert(capacity.num_factors == size.num_factors);
   assert(capacity.num_edges == size.num_edges);
-  assert(capacity.num_weights == size.num_weights);
+
+  // FIXME: Due to the task of ripping weights off of FactorGraph, this check
+  // is no longer performed here, since FactorGraphs don't load weights
+  // anymore. Do we still need a safety check for Weight[] somewhere, though?
+  // assert(capacity.num_weights == size.num_weights);
 
   // check whether variables, factors, and weights are stored
   // in the order of their id

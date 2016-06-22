@@ -74,6 +74,7 @@ int init(const dd::CmdParser &opts) {
   fg->load_variables(opts.variable_file);
   fg->load_domains(opts.domain_file);
   fg->load_factors(opts.factor_file);
+
   fg->safety_check();
 
   if (!opts.should_be_quiet) {
@@ -82,6 +83,8 @@ int init(const dd::CmdParser &opts) {
   }
 
   std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(*fg));
+  // FIXME(igozali): Shoot me now.
+  cfg->size.num_weights = meta.num_weights;
   cfg->dump(opts.snapshot_path);
 
   // Initialize Gibbs sampling application. Required even for initialization
@@ -198,6 +201,7 @@ int gibbs(const dd::CmdParser &args) {
   // Load weights
   std::unique_ptr<Weight[]> weights =
       read_weights(meta.num_weights, args.weight_file);
+  assert(weights);
 
   // Load factor graph
   dprintf("Initializing factor graph...\n");
@@ -206,6 +210,11 @@ int gibbs(const dd::CmdParser &args) {
   fg->load_variables(args.variable_file);
   fg->load_domains(args.domain_file);
   fg->load_factors(args.factor_file);
+
+  // FIXME(igozali): Shoot me now.
+  fg->size.num_weights = meta.num_weights;
+  fg->capacity.num_weights = meta.num_weights;
+
   std::cout << "Factor graph loaded:\t" << fg->size << std::endl;
   fg->safety_check();
 
@@ -214,11 +223,11 @@ int gibbs(const dd::CmdParser &args) {
     std::cout << *fg << std::endl;
   }
 
+  std::unique_ptr<CompactFactorGraph> cfg(new CompactFactorGraph(*fg));
+  cfg->size.num_weights = meta.num_weights;
+
   // Initialize Gibbs sampling application.
-  DimmWitted dw(
-      std::unique_ptr<CompactFactorGraph>(new CompactFactorGraph(*fg)),
-      std::move(weights), args);
-  std::cout << "I'm here debugging again" << std::endl;
+  DimmWitted dw(std::move(cfg), std::move(weights), args);
 
   // Explicitly drop the raw factor graph used only during loading
   fg.release();
@@ -237,8 +246,9 @@ int gibbs(const dd::CmdParser &args) {
 }
 
 DimmWitted::DimmWitted(std::unique_ptr<CompactFactorGraph> p_cfg,
-                       std::unique_ptr<Weight[]> weights, const CmdParser &opts)
-    : weights(std::move(weights)), opts(opts) {
+                       std::unique_ptr<Weight[]> _weights,
+                       const CmdParser &opts)
+    : weights(std::move(_weights)), opts(opts) {
   n_numa_nodes = numa_max_node() + 1;
   if (opts.n_datacopy > 0 && opts.n_datacopy < n_numa_nodes) {
     n_numa_nodes = opts.n_datacopy;

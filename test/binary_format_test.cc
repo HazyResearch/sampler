@@ -49,12 +49,11 @@ TEST(BinaryFormatTest, read_factors) {
 
 // test read_weights
 TEST(BinaryFormatTest, read_weights) {
-  FactorGraph fg({1, 1, 1, 1});
-  fg.load_weights("./test/biased_coin/graph.weights");
-  EXPECT_EQ(fg.size.num_weights, 1);
-  EXPECT_EQ(fg.weights[0].id, 0);
-  EXPECT_EQ(fg.weights[0].isfixed, false);
-  EXPECT_EQ(fg.weights[0].weight, 0.0);
+  constexpr char weight_file[] = "./test/biased_coin/graph.weights";
+  std::unique_ptr<Weight[]> weights = read_weights(1, weight_file);
+
+  EXPECT_EQ(weights[0].isfixed, false);
+  EXPECT_EQ(weights[0].weight, 0.0);
 }
 
 // test read domains

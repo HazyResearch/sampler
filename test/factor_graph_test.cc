@@ -6,6 +6,7 @@
 
 #include "dimmwitted.h"
 #include "factor_graph.h"
+#include "binary_format.h"
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -20,6 +21,7 @@ class FactorGraphTest : public testing::Test {
  protected:
   std::unique_ptr<CompactFactorGraph> cfg;
   std::unique_ptr<InferenceResult> infrs;
+  std::unique_ptr<Weight[]> weights;
 
   virtual void SetUp() {
     const char* argv[] = {
@@ -36,15 +38,19 @@ class FactorGraphTest : public testing::Test {
     };
     CmdParser cmd_parser(sizeof(argv) / sizeof(*argv), argv);
 
+    weights = read_weights(1, cmd_parser.weight_file);
+
     FactorGraph fg({18, 18, 1, 18});
     fg.load_variables(cmd_parser.variable_file);
-    fg.load_weights(cmd_parser.weight_file);
     fg.load_domains(cmd_parser.domain_file);
     fg.load_factors(cmd_parser.factor_file);
     fg.safety_check();
 
     cfg.reset(new CompactFactorGraph(fg));
-    infrs.reset(new InferenceResult(*cfg, fg.weights.get(), cmd_parser));
+    // FIXME: HACKKK
+    cfg->size.num_weights = 1;
+
+    infrs.reset(new InferenceResult(*cfg, weights.get(), cmd_parser));
   }
 };
 

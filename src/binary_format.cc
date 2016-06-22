@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <sys/stat.h>
 
+#define DEBUG
+
 namespace dd {
 
 // Read meta data file, return Meta struct
@@ -50,6 +52,7 @@ std::unique_ptr<Weight[]> read_weights(num_weights_t num_weights,
     weights[wid] = Weight(wid, initial_value, isfixed);
     ++count;
   }
+  std::cout << "Read " << count << " weight objects." << std::endl;
   assert(count == num_weights);
 
   // Allowed by the compiler, see http://stackoverflow.com/questions/4316727

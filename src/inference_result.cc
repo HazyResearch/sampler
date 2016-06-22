@@ -26,6 +26,11 @@ InferenceResult::InferenceResult(const CompactFactorGraph &fg,
     : InferenceResult(fg, opts) {
   for (weight_id_t t = 0; t < nweights; ++t) {
     const Weight &weight = weights[t];
+    std::cout << "HERE I GO AGAIN" << std::endl;
+    std::cout << "weight: " << &weight << std::endl;
+    std::cout << "weight.id:" << weight.id << std::endl;
+    std::cout << "weight.weight:" << weight.weight << std::endl;
+    std::cout << "weight.isfixed:" << weight.isfixed << std::endl;
     weight_values[weight.id] = weight.weight;
     weights_isfixed[weight.id] = weight.isfixed;
   }

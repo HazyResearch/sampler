@@ -7,6 +7,7 @@
 #include "dimmwitted.h"
 #include "factor_graph.h"
 #include "gibbs_sampler.h"
+#include "binary_format.h"
 #include <fstream>
 #include <gtest/gtest.h>
 
@@ -17,6 +18,7 @@ class SamplerTest : public testing::Test {
  protected:
   std::unique_ptr<CompactFactorGraph> cfg;
   std::unique_ptr<InferenceResult> infrs;
+  std::unique_ptr<Weight[]> weights;
   std::unique_ptr<GibbsSamplerThread> sampler;
 
   virtual void SetUp() {
@@ -33,15 +35,17 @@ class SamplerTest : public testing::Test {
         "--alpha", "0.1",
     };
     CmdParser cmd_parser(sizeof(argv) / sizeof(*argv), argv);
+
+    weights = read_weights(1, cmd_parser.weight_file);
+
     FactorGraph fg({18, 18, 1, 18});
     fg.load_variables(cmd_parser.variable_file);
-    fg.load_weights(cmd_parser.weight_file);
     fg.load_domains(cmd_parser.domain_file);
     fg.load_factors(cmd_parser.factor_file);
     fg.safety_check();
 
     cfg.reset(new CompactFactorGraph(fg));
-    infrs.reset(new InferenceResult(*cfg, fg.weights.get(), cmd_parser));
+    infrs.reset(new InferenceResult(*cfg, weights.get(), cmd_parser));
     sampler.reset(new GibbsSamplerThread(*cfg, *infrs, 0, 1, cmd_parser));
   }
 };
