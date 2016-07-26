@@ -40,13 +40,11 @@ Variable_ = numba.from_dtype(Variable)
 #                             ("featureValue", np.float64)])
 #WeightReference_ = numba.from_dtype(WeightReference)
 
-MAX_ARITY = 10 # TODO: need to make adaptable arrays
 Factor  = np.dtype([("factorFunction", np.int16),
                     ("arity",          np.int32),
-                    ("variableId",     np.int64, MAX_ARITY),
-                    ("equalPredicate", np.int32, MAX_ARITY),
                     ("weightId",       np.int64),
-                    ("featureValue",   np.float64)])
+                    ("featureValue",   np.float64),
+                   ])
 Factor_ = numba.from_dtype(Factor)
 
 #Factor = Variable.newbyteorder(">")
@@ -59,11 +57,13 @@ spec = [
         ('weight', Weight_[:]),
         ('variable', Variable_[:]),
         ('factor', Factor_[:]),
+        ('fstart', numba.int64[:]),
+        ('fmap',   numba.int64[:]),
         ('vstart', numba.int64[:]),
         ('vmap',   numba.int64[:])
        ]
 
-@jitclass(spec)
+#@jitclass(spec)
 class FactorGraph(object):
     #class Variable(object):
     #    pass
@@ -74,10 +74,12 @@ class FactorGraph(object):
     #class Weight(object):
     #    pass
 
-    def __init__(self, weight, variable, factor, vstart, vmap):
+    def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap):
         self.weight = weight
         self.variable = variable
         self.factor = factor
+        self.fstart = fstart
+        self.fmap = fmap
         self.vstart = vstart
         self.vmap = vmap
 
@@ -104,7 +106,9 @@ class FactorGraph(object):
     def potential(self, var, value):
         p = 0.0
         for i in range(self.vstart[self.variable[var]["variableId"]], self.vstart[self.variable[var]["variableId"] + 1]):
-            p += self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
+            p += self.factor[self.vmap[i]]["featureValue"] \
+               * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
+               * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
         return p
 
     #FUNC_IMPLY_NATURAL = 0,
@@ -115,7 +119,7 @@ class FactorGraph(object):
         factor = self.factor[factor_id]
         var = self.variable[var_id]
         for i in range(factor["arity"]):
-            v = value if (factor["variableId"][i] == var["variableId"]) else self.variable[factor["variableId"][i]]["initialValue"]
+            v = value if (self.fmap[i] == var["variableId"]) else self.variable[self.fmap[i]]["initialValue"]
             if v == 0:
                 return 0
         return 1
@@ -154,30 +158,33 @@ class FactorGraph(object):
 
         
 
-def load():
+def load(directory=""):
     # TODO: check that entire file is read (nothing more/nothing less)
-    meta = np.genfromtxt("../test/biased_coin/graph.meta",
+    meta = np.genfromtxt(directory + "/graph.meta",
                          delimiter=',',
                          dtype=Meta)
     print(meta)
     
     #weighs = np.empty(meta["variables"], Weight)
     
-    weight = np.fromfile("../test/biased_coin/graph.weights", Weight).byteswap() # TODO: only if system is little-endian
-    variable = np.fromfile("../test/biased_coin/graph.variables", Variable).byteswap() # TODO: only if system is little-endian
+    weight = np.fromfile(directory + "/graph.weights", Weight).byteswap() # TODO: only if system is little-endian
+    variable = np.fromfile(directory + "/graph.variables", Variable).byteswap() # TODO: only if system is little-endian
     print(weight)
     print(variable)
     factor = np.empty(meta["factors"], Factor)
-    info = []
-    with open("../test/biased_coin/graph.factors", "rb") as f: # TODO: should be weights_file...
+    fstart = np.zeros(meta["factors"] + 1, np.int64)
+    fmap = np.zeros(meta["edges"], np.int64)
+    equalPredicate = np.zeros(meta["edges"], np.int32) 
+    with open(directory + "/graph.factors", "rb") as f: # TODO: should be weights_file...
         try:
             for i in range(meta["factors"]):
                 factor[i]["factorFunction"] = struct.unpack('!h', f.read(2))[0]
                 factor[i]["arity"] = struct.unpack('!i', f.read(4))[0]
-                assert(factor[i]["arity"] <= MAX_ARITY)
+
+                fstart[i + 1] = fstart[i] + factor[i]["arity"]
                 for j in range(factor[i]["arity"]):
-                    factor[i]["variableId"][j] = struct.unpack('!q', f.read(8))[0]
-                    factor[i]["equalPredicate"][j] = struct.unpack('!i', f.read(4))[0]
+                    fmap[fstart[i] + j] = struct.unpack('!q', f.read(8))[0]
+                    equalPredicate[fstart[i] + j] = struct.unpack('!i', f.read(4))[0]
                 # TODO: handle FUNC_AND_CATEGORICAL
                 factor[i]["weightId"]     = struct.unpack('!q', f.read(8))[0]
                 factor[i]["featureValue"] = struct.unpack('!d', f.read(8))[0]
@@ -191,41 +198,44 @@ def load():
     
     factor.byteswap() # TODO: only if system is little-endian
     print(factor)
-    return meta, weight, variable, factor
+    return meta, weight, variable, factor, fstart, fmap
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
     #    #variable[1].value = 1
     #    #variable[1] = Variable
 
 @jit
-def compute_var_map(nvar, nedge, factor):
+def compute_var_map(nvar, nedge, fstart, fmap):
     vstart = np.zeros(nvar + 1, np.int64)
     vmap = np.zeros(nedge, np.int64)
   
-    for f in factor:
-        for i in range(f["arity"]):
-            vstart[f["variableId"][i] + 1] += 1
+    for i in fmap:
+        vstart[i + 1] += 1
   
     vstart = np.cumsum(vstart)
     index = vstart.copy()
 
-    for (fi, f) in enumerate(factor):
-        for i in range(f["arity"]):
-            vmap[index[f["variableId"][i]]] = fi
-            index[f["variableId"][i]] += 1
+    print(fstart)
+    for i in range(len(fstart) - 1):
+        for j in range(fstart[i], fstart[i + 1]):
+            vmap[index[fmap[j]]] = i
+            index[fmap[j]] += 1
   
     return vstart, vmap
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv
-    #fg = FactorGraph("../test/biased_coin/graph.meta")
-    (meta, weight, variable, factor) = load()
-    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], factor)
-    fg = FactorGraph(weight, variable, factor, vstart, vmap)
+    (meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin")
+    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
+    fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
     fg.eval_factor(0, -1, -1)
     fg.potential(0, 1)
     fg.gibbs(100)
+    print(fstart)
+    print(fmap)
+    print(vstart)
+    print(vmap)
 
     print(fg.sample(0))
 
