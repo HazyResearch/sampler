@@ -33,15 +33,17 @@ VariableReference  = np.dtype([("variableId",     np.int64),
                                ("equalPredicate", np.int32)])
 VariableReference_ = numba.from_dtype(VariableReference)
 
-WeightReference  = np.dtype([("numWeights",     np.int64),
-                             ("equalPredicate", np.int32)])
+WeightReference  = np.dtype([("weightId",     np.int64),
+                             ("featureValue", np.float64)])
 WeightReference_ = numba.from_dtype(WeightReference)
 
+MAX_ARITY = 10 # TODO: need to make adaptable arrays
 Factor  = np.dtype([("factorFunction", np.int16),
                     ("arity",          np.int32),
-                    ("variable",       VariableReference),
+                    ("variable",       VariableReference, MAX_ARITY),
                     ("weight",         WeightReference)])
 Factor_ = numba.from_dtype(Factor)
+
 #Factor = Variable.newbyteorder(">")
 
 
@@ -65,7 +67,8 @@ class FactorGraph(object):
     #class Weight(object):
     #    pass
 
-    def __init__(self, weight, variable):#, factor):
+    #def __init__(self, weight, variable, factor):
+    def __init__(self, weight, variable):
         self.weight = weight
         self.variable = variable
         #self.factor = factor
@@ -88,29 +91,25 @@ def load():
     with open("../test/biased_coin/graph.factors", "rb") as f: # TODO: should be weights_file...
         try:
             for i in range(meta["factors"]):
-                factor_type = struct.unpack('!h', f.read(2))[0]
-                arity = struct.unpack('!i', f.read(4))[0]
-                #f.read(28)
-                #variable_id = np.zeros(arity)
-                #should_equal_to = np.zeros(arity)
-                variable_id = np.zeros(0)
-                should_equal_to = np.zeros(0)
-                for j in range(arity):
-                    #variable_id[j] = struct.unpack('!q', f.read(8))[0]
-                    #should_equal_to[j] = struct.unpack('!i', f.read(4))[0]
-                    struct.unpack('!q', f.read(8))[0]
-                    struct.unpack('!i', f.read(4))[0]
+                factor[i]["factorFunction"] = struct.unpack('!h', f.read(2))[0]
+                factor[i]["arity"] = struct.unpack('!i', f.read(4))[0]
+                assert(factor[i]["arity"] <= MAX_ARITY)
+                for j in range(factor[i]["arity"]):
+                    factor[i]["variable"][j]["variableId"] = struct.unpack('!q', f.read(8))[0]
+                    factor[i]["variable"][j]["equalPredicate"] = struct.unpack('!i', f.read(4))[0]
+                # TODO: handle FUNC_AND_CATEGORICAL
+                factor[i]["weight"]["weightId"]     = struct.unpack('!q', f.read(8))[0]
+                factor[i]["weight"]["featureValue"] = struct.unpack('!d', f.read(8))[0]
                 #variableId1     long    8
                 #isPositive1     bool    1
                 #variableId2     long    8
                 #isPositive2     bool    1
-                info += [(factor_type, arity, variable_id.tolist(), should_equal_to.tolist())]
-        except:
-            pass
+                #info += [(factor_type, arity, variable_id.tolist(), equal_predicate.tolist(), weight_id, feature_value)]
         finally:
             pass
     
-    print(info)
+    factor.byteswap() # TODO: only if system is little-endian
+    print(factor)
     return meta, weight, variable, factor
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
