@@ -6,6 +6,7 @@ import numpy as np
 import struct
 import math
 import random
+import sys
 
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
@@ -81,6 +82,7 @@ class FactorGraph(object):
         self.vmap = vmap
 
     def gibbs(self, sweeps):
+        # TODO: give option do not store result, or just store tally
         sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
         #sample = np.zeros(sweeps, np.float64)
         for s in range(sweeps):
@@ -213,4 +215,20 @@ def compute_var_map(nvar, nedge, factor):
             index[f["variableId"][i]] += 1
   
     return vstart, vmap
+
+def main(argv=None):
+    if argv is None:
+        argv = sys.argv
+    #fg = FactorGraph("../test/biased_coin/graph.meta")
+    (meta, weight, variable, factor) = load()
+    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], factor)
+    fg = FactorGraph(weight, variable, factor, vstart, vmap)
+    fg.eval_factor(0, -1, -1)
+    fg.potential(0, 1)
+    fg.gibbs(100)
+
+    print(fg.sample(0))
+
+if __name__ == "__main__":
+    main(sys.argv)
 
