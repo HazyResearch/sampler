@@ -7,7 +7,8 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
     #fg = gibbs.FactorGraph("../test/biased_coin/graph.meta")
-    fg = gibbs.FactorGraph()
+    (meta, weight, variable, factor) = gibbs.load()
+    fg = gibbs.FactorGraph(weight, variable)
 
 if __name__ == "__main__":
     main(sys.argv)
