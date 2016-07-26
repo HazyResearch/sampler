@@ -4,6 +4,8 @@ import numba
 from numba import jit, jitclass, autojit, void
 import numpy as np
 import struct
+import math
+import random
 
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
@@ -55,7 +57,9 @@ spec = [
         #('meta', Meta_[:]), # causes problems
         ('weight', Weight_[:]),
         ('variable', Variable_[:]),
-        ('factor', Factor_[:])
+        ('factor', Factor_[:]),
+        ('vstart', numba.int64[:]),
+        ('vmap',   numba.int64[:])
        ]
 
 @jitclass(spec)
@@ -69,10 +73,84 @@ class FactorGraph(object):
     #class Weight(object):
     #    pass
 
-    def __init__(self, weight, variable, factor):
+    def __init__(self, weight, variable, factor, vstart, vmap):
         self.weight = weight
         self.variable = variable
         self.factor = factor
+        self.vstart = vstart
+        self.vmap = vmap
+
+    def gibbs(self, sweeps):
+        sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
+        #sample = np.zeros(sweeps, np.float64)
+        for s in range(sweeps):
+            for v in range(self.variable.shape[0]):
+                sample[s, v] = self.sample(v)
+                #sample[s] = self.sample(v)
+        #print(sample)
+        return sample
+
+    def sample(self, var):
+        Z = np.zeros(self.variable[var]["cardinality"])
+        for i in range(self.variable[var]["cardinality"]):
+            Z[i] = math.exp(self.potential(var, i))
+        Z = np.cumsum(Z)
+        z = random.random() * Z[-1]
+        self.variable[var]["initialValue"] = np.argmax(Z >= z)
+        return self.variable[var]["initialValue"]
+
+    def potential(self, var, value):
+        p = 0.0
+        for i in range(self.vstart[self.variable[var]["variableId"]], self.vstart[self.variable[var]["variableId"] + 1]):
+            p += self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
+        return p
+
+    #FUNC_IMPLY_NATURAL = 0,
+    #FUNC_OR = 1,
+    #FUNC_AND = 2,
+    #FUNC_EQUAL = 3,
+    def FUNC_ISTRUE(self, factor_id, var_id, value):
+        factor = self.factor[factor_id]
+        var = self.variable[var_id]
+        for i in range(factor["arity"]):
+            v = value if (factor["variableId"][i] == var["variableId"]) else self.variable[factor["variableId"][i]]["initialValue"]
+            if v == 0:
+                return 0
+        return 1
+    #FUNC_LINEAR = 7,
+    #FUNC_RATIO = 8,
+    #FUNC_LOGICAL = 9,
+    #FUNC_AND_CATEGORICAL = 12,
+    #FUNC_IMPLY_MLN = 13,
+
+    def FUNC_UNDEFINED(self, factor, var, value):
+        return 1
+        #raise NotImplementedError("Function " + str(factor["factorFunction"]) + " is not implemented.") # TODO: make numba behave reasonably here
+
+    
+    def eval_factor(self, factor_id, var=-1, value=-1):
+        if self.factor[factor_id]["factorFunction"] == 4:
+            return self.FUNC_ISTRUE(factor_id, var, value)
+        else:
+            print("DEBUG****************************************************************************************************")
+            return 1
+            #raise NotImplementedError("Function " + str(factor["factorFunction"]) + " is not implemented.") # TODO: make numba behave reasonably here
+            
+        #return self.FUNC_UNDEFINED(self.factor[factor_id], var, value)
+        #return {
+        #    #FUNC_IMPLY_NATURAL = 0,
+        #    #FUNC_OR = 1,
+        #    #FUNC_AND = 2,
+        #    #FUNC_EQUAL = 3,
+        #    4: self.FUNC_ISTRUE,
+        #    #FUNC_LINEAR = 7,
+        #    #FUNC_RATIO = 8,
+        #    #FUNC_LOGICAL = 9,
+        #    #FUNC_AND_CATEGORICAL = 12,
+        #    #FUNC_IMPLY_MLN = 13,
+        #}.get(self.factor[factor_id]["factorFunction"], self.FUNC_UNDEFINED)(self.factor[factor_id], var, value)
+
+        
 
 def load():
     # TODO: check that entire file is read (nothing more/nothing less)
@@ -116,4 +194,23 @@ def load():
     #    #variable["value"].value = 1
     #    #variable[1].value = 1
     #    #variable[1] = Variable
+
+@jit
+def compute_var_map(nvar, nedge, factor):
+    vstart = np.zeros(nvar + 1, np.int64)
+    vmap = np.zeros(nedge, np.int64)
+  
+    for f in factor:
+        for i in range(f["arity"]):
+            vstart[f["variableId"][i] + 1] += 1
+  
+    vstart = np.cumsum(vstart)
+    index = vstart.copy()
+
+    for (fi, f) in enumerate(factor):
+        for i in range(f["arity"]):
+            vmap[index[f["variableId"][i]]] = fi
+            index[f["variableId"][i]] += 1
+  
+    return vstart, vmap
 
