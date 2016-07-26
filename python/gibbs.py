@@ -29,19 +29,21 @@ Variable  = np.dtype([("variableId",     np.int64),
                       ("cardinality",    np.int32)])
 Variable_ = numba.from_dtype(Variable)
 
-VariableReference  = np.dtype([("variableId",     np.int64),
-                               ("equalPredicate", np.int32)])
-VariableReference_ = numba.from_dtype(VariableReference)
-
-WeightReference  = np.dtype([("weightId",     np.int64),
-                             ("featureValue", np.float64)])
-WeightReference_ = numba.from_dtype(WeightReference)
+#VariableReference  = np.dtype([("variableId",     np.int64),
+#                               ("equalPredicate", np.int32)])
+#VariableReference_ = numba.from_dtype(VariableReference)
+#
+#WeightReference  = np.dtype([("weightId",     np.int64),
+#                             ("featureValue", np.float64)])
+#WeightReference_ = numba.from_dtype(WeightReference)
 
 MAX_ARITY = 10 # TODO: need to make adaptable arrays
 Factor  = np.dtype([("factorFunction", np.int16),
                     ("arity",          np.int32),
-                    ("variable",       VariableReference, MAX_ARITY),
-                    ("weight",         WeightReference)])
+                    ("variableId",     np.int64, MAX_ARITY),
+                    ("equalPredicate", np.int32, MAX_ARITY),
+                    ("weightId",       np.int64),
+                    ("featureValue",   np.float64)])
 Factor_ = numba.from_dtype(Factor)
 
 #Factor = Variable.newbyteorder(">")
@@ -53,7 +55,7 @@ spec = [
         #('meta', Meta_[:]), # causes problems
         ('weight', Weight_[:]),
         ('variable', Variable_[:]),
-        #('factor', Factor_[:])
+        ('factor', Factor_[:])
        ]
 
 @jitclass(spec)
@@ -67,11 +69,10 @@ class FactorGraph(object):
     #class Weight(object):
     #    pass
 
-    #def __init__(self, weight, variable, factor):
-    def __init__(self, weight, variable):
+    def __init__(self, weight, variable, factor):
         self.weight = weight
         self.variable = variable
-        #self.factor = factor
+        self.factor = factor
 
 def load():
     # TODO: check that entire file is read (nothing more/nothing less)
@@ -95,11 +96,11 @@ def load():
                 factor[i]["arity"] = struct.unpack('!i', f.read(4))[0]
                 assert(factor[i]["arity"] <= MAX_ARITY)
                 for j in range(factor[i]["arity"]):
-                    factor[i]["variable"][j]["variableId"] = struct.unpack('!q', f.read(8))[0]
-                    factor[i]["variable"][j]["equalPredicate"] = struct.unpack('!i', f.read(4))[0]
+                    factor[i]["variableId"][j] = struct.unpack('!q', f.read(8))[0]
+                    factor[i]["equalPredicate"][j] = struct.unpack('!i', f.read(4))[0]
                 # TODO: handle FUNC_AND_CATEGORICAL
-                factor[i]["weight"]["weightId"]     = struct.unpack('!q', f.read(8))[0]
-                factor[i]["weight"]["featureValue"] = struct.unpack('!d', f.read(8))[0]
+                factor[i]["weightId"]     = struct.unpack('!q', f.read(8))[0]
+                factor[i]["featureValue"] = struct.unpack('!d', f.read(8))[0]
                 #variableId1     long    8
                 #isPositive1     bool    1
                 #variableId2     long    8
