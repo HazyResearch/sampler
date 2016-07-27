@@ -286,28 +286,38 @@ def main(argv=None):
                         default=".",
                         type=str)
     parser.add_argument("-m", "--meta",
-                        metavar="METAFILE",
+                        metavar="META_FILE",
                         dest="meta",
                         default="graph.meta",
+                        type=str,
                         help="meta file") # TODO: print default for meta, weight, variable, factor in help
     parser.add_argument("-w", "--weight",
-                        metavar="WEIGHTSFILE",
+                        metavar="WEIGHTS_FILE",
                         dest="weight",
                         default="graph.weights",
+                        type=str,
                         help="weight file")
     parser.add_argument("-v", "--variable",
-                        metavar="VARIABLESFILE",
+                        metavar="VARIABLES_FILE",
                         dest="variable",
                         default="graph.variables",
+                        type=str,
                         help="variable file")
     parser.add_argument("-f", "--factor",
-                        metavar="FACTORSFILE",
+                        metavar="FACTORS_FILE",
                         dest="factor",
                         default="graph.factors",
+                        type=str,
                         help="factor file")
     # TODO: burn-in option
     # TODO: learning options
     # TODO: inference option
+    parser.add_argument("-i", "--inference",
+                        metavar="NUM_INFERENCE_STEPS",
+                        dest="inference",
+                        default=0,
+                        type=int,
+                        help="number of inference sweeps")
     # TODO: sample observed variable option
     # TODO: quiet option
     # TODO: verbose option (print all info)
@@ -325,7 +335,7 @@ def main(argv=None):
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
 
-    res = fg.gibbs(100)
+    res = fg.gibbs(arg.inference)
 
 
 if __name__ == "__main__":
