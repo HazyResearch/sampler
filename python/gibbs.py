@@ -181,6 +181,7 @@ def load(directory="", print_info=False, print_only_meta=False):
     
     #weighs = np.empty(meta["variables"], Weight)
     
+    # TODO: need to sort by weightID
     weight = np.fromfile(directory + "/graph.weights", Weight).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Weights:")
@@ -190,6 +191,7 @@ def load(directory="", print_info=False, print_only_meta=False):
             print("        initialValue:", w["initialValue"])
         print()
 
+    # TODO: need to sort by variableId
     variable = np.fromfile(directory + "/graph.variables", Variable).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Variables:")
@@ -202,6 +204,7 @@ def load(directory="", print_info=False, print_only_meta=False):
             # TODO: print connected factors and num factors
             print()
 
+    # TODO: might need to sort by factorId? (or just load in right spot)
     factor = np.empty(meta["factors"], Factor)
     fstart = np.zeros(meta["factors"] + 1, np.int64)
     fmap = np.zeros(meta["edges"], np.int64)
