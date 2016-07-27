@@ -135,12 +135,7 @@ class FactorGraph(object):
 
     def FUNC_UNDEFINED(self, factor_id, var, value):
         print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
-        print("Infinite looping now, since NUMBA prevents exceptions...")
-        while True:
-            pass
-        #assert(false)
-        return 1
-        #raise NotImplementedError("Function " + str(factor["factorFunction"]) + " is not implemented.") # TODO: make numba behave reasonably here
+        raise NotImplementedError("Factor function is not implemented.")
 
     
     def eval_factor(self, factor_id, var=-1, value=-1):
