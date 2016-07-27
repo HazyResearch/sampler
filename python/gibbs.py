@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import numba
 from numba import jit, jitclass, autojit, void
 import numpy as np
@@ -11,11 +12,11 @@ import sys
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
                  ('factors',        np.int64),
-                 ('edges',          np.int64),
-                 ('weights_file',   object), # TODO: no max length on string
-                 ('variables_file', object),
-                 ('factors_file',   object),
-                 ('edges_file',     object)])
+                 ('edges',          np.int64)])
+                 #('weights_file',   object), # TODO: no max length on string
+                 #('variables_file', object),
+                 #('factors_file',   object),
+                 #('edges_file',     object)])
 #Meta_ = numba.from_dtype(Meta)
 
 # TODO: uint or int
@@ -98,8 +99,10 @@ class FactorGraph(object):
         Z = np.zeros(self.variable[var]["cardinality"])
         for i in range(self.variable[var]["cardinality"]):
             Z[i] = math.exp(self.potential(var, i))
+        #print(Z)
         Z = np.cumsum(Z)
         z = random.random() * Z[-1]
+        #print(Z)
         self.variable[var]["initialValue"] = np.argmax(Z >= z)
         return self.variable[var]["initialValue"]
 
@@ -114,12 +117,18 @@ class FactorGraph(object):
     #FUNC_IMPLY_NATURAL = 0,
     #FUNC_OR = 1,
     #FUNC_AND = 2,
-    #FUNC_EQUAL = 3,
+    def FUNC_EQUAL(self, factor_id, var_id, value):
+        v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+        for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+            v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+            if v == 0:
+                return 0
+        return 1
+
     def FUNC_ISTRUE(self, factor_id, var_id, value):
         factor = self.factor[factor_id]
-        var = self.variable[var_id]
-        for i in range(factor["arity"]):
-            v = value if (self.fmap[i] == var["variableId"]) else self.variable[self.fmap[i]]["initialValue"]
+        for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+            v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
             if v == 0:
                 return 0
         return 1
@@ -130,17 +139,22 @@ class FactorGraph(object):
     #FUNC_IMPLY_MLN = 13,
 
     def FUNC_UNDEFINED(self, factor, var, value):
+        print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "is not implemented.")
+        print("Infinite looping now, since NUMBA prevents exceptions...")
+        while True:
+            pass
+        #assert(false)
         return 1
         #raise NotImplementedError("Function " + str(factor["factorFunction"]) + " is not implemented.") # TODO: make numba behave reasonably here
 
     
     def eval_factor(self, factor_id, var=-1, value=-1):
-        if self.factor[factor_id]["factorFunction"] == 4:
+        if self.factor[factor_id]["factorFunction"] == 3:
+            return self.FUNC_EQUAL(factor_id, var, value)
+        elif self.factor[factor_id]["factorFunction"] == 4:
             return self.FUNC_ISTRUE(factor_id, var, value)
         else:
-            print("DEBUG****************************************************************************************************")
-            return 1
-            #raise NotImplementedError("Function " + str(factor["factorFunction"]) + " is not implemented.") # TODO: make numba behave reasonably here
+            return self.FUNC_UNDEFINED(factor_id, var, value)
             
         #return self.FUNC_UNDEFINED(self.factor[factor_id], var, value)
         #return {
@@ -158,24 +172,46 @@ class FactorGraph(object):
 
         
 
-def load(directory=""):
+def load(directory="", print_info=False, print_only_meta=False):
     # TODO: check that entire file is read (nothing more/nothing less)
     meta = np.genfromtxt(directory + "/graph.meta",
                          delimiter=',',
                          dtype=Meta)
-    print(meta)
+    if print_info:
+        print("Meta:")
+        print("    weights:  ", meta["weights"])
+        print("    variables:", meta["variables"])
+        print("    factors:  ", meta["factors"])
+        print("    edges:    ", meta["edges"])
+        print()
     
     #weighs = np.empty(meta["variables"], Weight)
     
     weight = np.fromfile(directory + "/graph.weights", Weight).byteswap() # TODO: only if system is little-endian
+    if print_info and not print_only_meta:
+        print("Weights:")
+        for w in weight:
+            print("    weightId:", w["weightId"])
+            print("        isFixed:     ", w["isFixed"])
+            print("        initialValue:", w["initialValue"])
+        print()
+
     variable = np.fromfile(directory + "/graph.variables", Variable).byteswap() # TODO: only if system is little-endian
-    print(weight)
-    print(variable)
+    if print_info and not print_only_meta:
+        print("Variables:")
+        for v in variable:
+            print("    variableId:", v["variableId"])
+            print("        roleSerialized:", v["roleSerialized"])
+            print("        initialValue:  ", v["initialValue"])
+            print("        dataType:      ", v["dataType"]) # TODO: What is this
+            print("        cardinality:   ", v["cardinality"])
+            # TODO: print connected factors and num factors
+
     factor = np.empty(meta["factors"], Factor)
     fstart = np.zeros(meta["factors"] + 1, np.int64)
     fmap = np.zeros(meta["edges"], np.int64)
     equalPredicate = np.zeros(meta["edges"], np.int32) 
-    with open(directory + "/graph.factors", "rb") as f: # TODO: should be weights_file...
+    with open(directory + "/graph.factors", "rb") as f:
         try:
             for i in range(meta["factors"]):
                 factor[i]["factorFunction"] = struct.unpack('!h', f.read(2))[0]
@@ -197,7 +233,8 @@ def load(directory=""):
             pass
     
     factor.byteswap() # TODO: only if system is little-endian
-    print(factor)
+    if print_info and not print_only_meta:
+        print(factor)
     return meta, weight, variable, factor, fstart, fmap
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
@@ -223,21 +260,28 @@ def compute_var_map(nvar, nedge, fstart, fmap):
   
     return vstart, vmap
 
+def print_factor(f):
+    print("factorFunction: " + str(f["factorFunction"]))
+    print("arity:          " + str(f["arity"]))
+    print("weightId:       " + str(f["weightId"]))
+    print("featureValue:   " + str(f["featureValue"]))
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv
-    (meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin")
+    # TODO: default directory is local, add command line arg to change
+    #(meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin_continuous")
+    (meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
     (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
+    fg.sample(0)
     fg.eval_factor(0, -1, -1)
     fg.potential(0, 1)
-    fg.gibbs(100)
-    print(fstart)
-    print(fmap)
-    print(vstart)
-    print(vmap)
+    res = fg.gibbs(100)
+    for f in factor:
+        print_factor(f)
+    print(np.mean(res, axis=(0)))
 
-    print(fg.sample(0))
 
 if __name__ == "__main__":
     main(sys.argv)
