@@ -112,38 +112,29 @@ class FactorGraph(object):
     #FUNC_IMPLY_NATURAL = 0,
     #FUNC_OR = 1,
     #FUNC_AND = 2,
-    def FUNC_EQUAL(self, factor_id, var_id, value):
-        v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
-        for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-            v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
-            if v == 0:
-                return 0
-        return 1
-
-    def FUNC_ISTRUE(self, factor_id, var_id, value):
-        for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-            v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
-            if v == 0:
-                return 0
-        return 1
     #FUNC_LINEAR = 7,
     #FUNC_RATIO = 8,
     #FUNC_LOGICAL = 9,
     #FUNC_AND_CATEGORICAL = 12,
     #FUNC_IMPLY_MLN = 13,
 
-    def FUNC_UNDEFINED(self, factor_id, var, value):
-        print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
-        raise NotImplementedError("Factor function is not implemented.")
-
-    
-    def eval_factor(self, factor_id, var=-1, value=-1):
-        if self.factor[factor_id]["factorFunction"] == 3:
-            return self.FUNC_EQUAL(factor_id, var, value)
-        elif self.factor[factor_id]["factorFunction"] == 4:
-            return self.FUNC_ISTRUE(factor_id, var, value)
-        else:
-            return self.FUNC_UNDEFINED(factor_id, var, value)
+    def eval_factor(self, factor_id, var_id=-1, value=-1):
+        if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
+            v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+            for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+                v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+                if v == 0:
+                    return 0
+            return 1
+        elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
+            for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+                v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+                if v == 0:
+                    return 0
+            return 1
+        else: # FUNC_UNDEFINED
+            print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
+            raise NotImplementedError("Factor function is not implemented.")
             
         #return self.FUNC_UNDEFINED(self.factor[factor_id], var, value)
         #return {
