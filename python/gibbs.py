@@ -271,14 +271,15 @@ def main(argv=None):
     # TODO: default directory is local, add command line arg to change
     # TODO: args for each file
     # TODO: sample observed var
-    (meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin", True)
+    #(meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin", True)
+    (meta, weight, variable, factor, fstart, fmap) = load("../ising/", True)
     #(meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
     (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
     fg.sample(0)
     fg.eval_factor(0, -1, -1)
     fg.potential(0, 1)
-    res = fg.gibbs(100)
+    res = fg.gibbs(1000000)
     for f in factor:
         print_factor(f)
     print(np.mean(res, axis=(0)))
