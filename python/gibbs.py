@@ -132,8 +132,8 @@ class FactorGraph(object):
         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
             v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
             for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
-                if v == 0:
+                w = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+                if v != w:
                     return 0
             return 1
         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
