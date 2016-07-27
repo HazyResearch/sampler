@@ -8,6 +8,7 @@ import struct
 import math
 import random
 import sys
+import argparse
 
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
@@ -166,9 +167,17 @@ def dataType(i):
           1: "Categorical"}.get(i, "Unknown")
 
 
-def load(directory="", print_info=False, print_only_meta=False):
+def load(directory=".",
+         meta="graph.meta",
+         weight="graph.weights",
+         variable="graph.variables",
+         factor="graph.factors",
+         print_info=False,
+         print_only_meta=False):
+
     # TODO: check that entire file is read (nothing more/nothing less)
-    meta = np.genfromtxt(directory + "/graph.meta",
+    # TODO: make error when file does not exist less dumb
+    meta = np.genfromtxt(directory + "/" + meta,
                          delimiter=',',
                          dtype=Meta)
     if print_info:
@@ -182,7 +191,7 @@ def load(directory="", print_info=False, print_only_meta=False):
     #weighs = np.empty(meta["variables"], Weight)
     
     # TODO: need to sort by weightID
-    weight = np.fromfile(directory + "/graph.weights", Weight).byteswap() # TODO: only if system is little-endian
+    weight = np.fromfile(directory + "/" + weights, Weight).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Weights:")
         for w in weight:
@@ -192,7 +201,7 @@ def load(directory="", print_info=False, print_only_meta=False):
         print()
 
     # TODO: need to sort by variableId
-    variable = np.fromfile(directory + "/graph.variables", Variable).byteswap() # TODO: only if system is little-endian
+    variable = np.fromfile(directory + "/" + variables, Variable).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Variables:")
         for v in variable:
@@ -265,24 +274,60 @@ def print_factor(f):
 
 def main(argv=None):
     if argv is None:
-        argv = sys.argv
-    # TODO: default directory is local, add command line arg to change
-    # TODO: args for each file
-    # TODO: sample observed var
-    #(meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin", True)
-    (meta, weight, variable, factor, fstart, fmap) = load("../ising/", True, True)
-    #(meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
+        argv = sys.argv[1:]
+    parser = argparse.ArgumentParser(
+        description="Runs a Gibbs sampler",
+        epilog="")
+
+    parser.add_argument("directory",
+                        metavar="DIRECTORY",
+                        nargs="?",
+                        help="specify directory of factor graph files",
+                        default=".",
+                        type=str)
+    parser.add_argument("-m", "--meta",
+                        metavar="METAFILE",
+                        dest="meta",
+                        default="graph.meta",
+                        help="meta file") # TODO: print default for meta, weight, variable, factor in help
+    parser.add_argument("-w", "--weight",
+                        metavar="WEIGHTSFILE",
+                        dest="weight",
+                        default="graph.weights",
+                        help="weight file")
+    parser.add_argument("-v", "--variable",
+                        metavar="VARIABLESFILE",
+                        dest="variable",
+                        default="graph.variables",
+                        help="variable file")
+    parser.add_argument("-f", "--factor",
+                        metavar="FACTORSFILE",
+                        dest="factor",
+                        default="graph.factors",
+                        help="factor file")
+    # TODO: burn-in option
+    # TODO: learning options
+    # TODO: inference option
+    # TODO: sample observed variable option
+    # TODO: quiet option
+    # TODO: verbose option (print all info)
+    parser.add_argument("--version",
+                        action='version',
+                        version="%(prog)s 0.0",
+                        help="print version number")
+
+    print(argv)
+    arg = parser.parse_args(argv)
+    print(arg)
+
+    (meta, weight, variable, factor, fstart, fmap) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
     (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
+
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
-    fg.sample(0)
-    #fg.eval_factor(0, -1, -1)
-    fg.potential(0, 1)
+
     res = fg.gibbs(100)
-    #for f in factor:
-    #    print_factor(f)
-    #print(np.mean(res, axis=(0)))
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    main()
 
