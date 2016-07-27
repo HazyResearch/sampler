@@ -26,11 +26,11 @@ Weight  = np.dtype([("weightId",     np.int64),
 #Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 Weight_ = numba.from_dtype(Weight)
 
-Variable  = np.dtype([("variableId",     np.int64),
-                      ("roleSerialized", np.bool),
-                      ("initialValue",   np.int32),
-                      ("dataType",       np.int16),
-                      ("cardinality",    np.int32)])
+Variable  = np.dtype([("variableId",   np.int64),
+                      ("isEvidence",   np.bool),
+                      ("initialValue", np.int32),
+                      ("dataType",     np.int16),
+                      ("cardinality",  np.int32)])
 Variable_ = numba.from_dtype(Variable)
 
 #VariableReference  = np.dtype([("variableId",     np.int64),
@@ -64,16 +64,8 @@ spec = [
         ('vmap',   numba.int64[:])
        ]
 
-#@jitclass(spec)
+@jitclass(spec)
 class FactorGraph(object):
-    #class Variable(object):
-    #    pass
-    #
-    #class Factor(object):
-    #    pass
-    #
-    #class Weight(object):
-    #    pass
 
     def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap):
         self.weight = weight
@@ -109,8 +101,10 @@ class FactorGraph(object):
     def potential(self, var, value):
         p = 0.0
         for i in range(self.vstart[self.variable[var]["variableId"]], self.vstart[self.variable[var]["variableId"] + 1]):
-            p += self.factor[self.vmap[i]]["featureValue"] \
-               * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
+            #p += self.factor[self.vmap[i]]["featureValue"] \
+            #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
+            #   * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
+            p += self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
                * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
         return p
 
@@ -138,8 +132,8 @@ class FactorGraph(object):
     #FUNC_AND_CATEGORICAL = 12,
     #FUNC_IMPLY_MLN = 13,
 
-    def FUNC_UNDEFINED(self, factor, var, value):
-        print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "is not implemented.")
+    def FUNC_UNDEFINED(self, factor_id, var, value):
+        print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
         print("Infinite looping now, since NUMBA prevents exceptions...")
         while True:
             pass
@@ -171,6 +165,10 @@ class FactorGraph(object):
         #}.get(self.factor[factor_id]["factorFunction"], self.FUNC_UNDEFINED)(self.factor[factor_id], var, value)
 
         
+def dataType(i):
+  return {0: "Boolean",
+          1: "Categorical"}.get(i, "Unknown")
+
 
 def load(directory="", print_info=False, print_only_meta=False):
     # TODO: check that entire file is read (nothing more/nothing less)
@@ -201,11 +199,12 @@ def load(directory="", print_info=False, print_only_meta=False):
         print("Variables:")
         for v in variable:
             print("    variableId:", v["variableId"])
-            print("        roleSerialized:", v["roleSerialized"])
-            print("        initialValue:  ", v["initialValue"])
-            print("        dataType:      ", v["dataType"]) # TODO: What is this
-            print("        cardinality:   ", v["cardinality"])
+            print("        isEvidence:  ", v["isEvidence"])
+            print("        initialValue:", v["initialValue"])
+            print("        dataType:    ", v["dataType"], "(", dataType(v["dataType"]), ")")
+            print("        cardinality: ", v["cardinality"])
             # TODO: print connected factors and num factors
+            print()
 
     factor = np.empty(meta["factors"], Factor)
     fstart = np.zeros(meta["factors"] + 1, np.int64)
@@ -270,8 +269,10 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
     # TODO: default directory is local, add command line arg to change
-    #(meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin_continuous")
-    (meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
+    # TODO: args for each file
+    # TODO: sample observed var
+    (meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin", True)
+    #(meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
     (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
     fg.sample(0)
