@@ -110,7 +110,6 @@ void write(vector<Variable> variable, vector<Weight> weight, vector<Factor> fact
     for (Factor f : factor) {
         write_be_or_die(file, f.factorFunction);
         write_be_or_die(file, f.arity);
-        cout << f.variableReferences.size() << "\n";
         assert(f.arity == f.variableReferences.size());
         for (VariableReference vr : f.variableReferences) {
             write_be_or_die(file, vr.variableId);
@@ -125,8 +124,9 @@ void write(vector<Variable> variable, vector<Weight> weight, vector<Factor> fact
 
 int main(int argc, char *argv[])
 {
-    const size_t N = 2;
-    const size_t M = 3;
+    const size_t N = 1000;
+    const size_t M = 1000;
+    const double WEIGHT = 0.1;
 
     vector<Variable> variable;
     for (size_t i = 0; i < N; i++) {
@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
     Weight w;
     w.weightId = 0;
     w.isFixed = 1;
-    w.initialValue = 1;
+    w.initialValue = WEIGHT;
     weight.push_back(w);
 
     vector<Factor> factor;

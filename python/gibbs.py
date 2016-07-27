@@ -78,14 +78,15 @@ class FactorGraph(object):
 
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
-        sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
+        #sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
         #sample = np.zeros(sweeps, np.float64)
         for s in range(sweeps):
             for v in range(self.variable.shape[0]):
-                sample[s, v] = self.sample(v)
+                self.sample(v)
+                #sample[s, v] = self.sample(v)
                 #sample[s] = self.sample(v)
         #print(sample)
-        return sample
+        #return sample
 
     def sample(self, var):
         Z = np.zeros(self.variable[var]["cardinality"])
@@ -251,7 +252,6 @@ def compute_var_map(nvar, nedge, fstart, fmap):
     vstart = np.cumsum(vstart)
     index = vstart.copy()
 
-    print(fstart)
     for i in range(len(fstart) - 1):
         for j in range(fstart[i], fstart[i + 1]):
             vmap[index[fmap[j]]] = i
@@ -272,17 +272,17 @@ def main(argv=None):
     # TODO: args for each file
     # TODO: sample observed var
     #(meta, weight, variable, factor, fstart, fmap) = load("../test/biased_coin", True)
-    (meta, weight, variable, factor, fstart, fmap) = load("../ising/", True)
+    (meta, weight, variable, factor, fstart, fmap) = load("../ising/", True, True)
     #(meta, weight, variable, factor, fstart, fmap) = load("../test/partial_observation", True)
     (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
     fg.sample(0)
-    fg.eval_factor(0, -1, -1)
+    #fg.eval_factor(0, -1, -1)
     fg.potential(0, 1)
-    res = fg.gibbs(1000000)
-    for f in factor:
-        print_factor(f)
-    print(np.mean(res, axis=(0)))
+    res = fg.gibbs(100)
+    #for f in factor:
+    #    print_factor(f)
+    #print(np.mean(res, axis=(0)))
 
 
 if __name__ == "__main__":
