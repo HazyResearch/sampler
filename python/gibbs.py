@@ -61,7 +61,8 @@ spec = [
         ('fstart', numba.int64[:]),
         ('fmap',   numba.int64[:]),
         ('vstart', numba.int64[:]),
-        ('vmap',   numba.int64[:])
+        ('vmap',   numba.int64[:]),
+        ('Z',      numba.float64[:])
        ]
 
 @jitclass(spec)
@@ -76,6 +77,12 @@ class FactorGraph(object):
         self.vstart = vstart
         self.vmap = vmap
 
+        cardinality = 0
+        for v in self.variable:
+            cardinality = max(cardinality, v["cardinality"])
+        self.Z = np.zeros(cardinality)
+
+
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
         #sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
@@ -89,14 +96,17 @@ class FactorGraph(object):
         #return sample
 
     def sample(self, var):
-        Z = np.zeros(self.variable[var]["cardinality"])
-        for i in range(self.variable[var]["cardinality"]):
-            Z[i] = math.exp(self.potential(var, i))
+        cardinality = self.variable[var]["cardinality"]
+        for i in range(cardinality):
+            self.Z[i] = math.exp(self.potential(var, i))
+
+        #Z = np.cumsum(Z)
+        for i in range(1, cardinality):
+            self.Z[i] += self.Z[i - 1]
+
+        z = random.random() * self.Z[cardinality - 1]
         #print(Z)
-        Z = np.cumsum(Z)
-        z = random.random() * Z[-1]
-        #print(Z)
-        self.variable[var]["initialValue"] = np.argmax(Z >= z)
+        self.variable[var]["initialValue"] = np.argmax(self.Z >= z)
         return self.variable[var]["initialValue"]
 
     def potential(self, var, value):
