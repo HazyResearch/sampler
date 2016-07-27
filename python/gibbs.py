@@ -168,16 +168,16 @@ def dataType(i):
 
 
 def load(directory=".",
-         meta="graph.meta",
-         weight="graph.weights",
-         variable="graph.variables",
-         factor="graph.factors",
+         metafile="graph.meta",
+         weightfile="graph.weights",
+         variablefile="graph.variables",
+         factorfile="graph.factors",
          print_info=False,
          print_only_meta=False):
 
     # TODO: check that entire file is read (nothing more/nothing less)
     # TODO: make error when file does not exist less dumb
-    meta = np.genfromtxt(directory + "/" + meta,
+    meta = np.genfromtxt(directory + "/" + metafile,
                          delimiter=',',
                          dtype=Meta)
     if print_info:
@@ -191,7 +191,7 @@ def load(directory=".",
     #weighs = np.empty(meta["variables"], Weight)
     
     # TODO: need to sort by weightID
-    weight = np.fromfile(directory + "/" + weights, Weight).byteswap() # TODO: only if system is little-endian
+    weight = np.fromfile(directory + "/" + weightfile, Weight).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Weights:")
         for w in weight:
@@ -201,7 +201,7 @@ def load(directory=".",
         print()
 
     # TODO: need to sort by variableId
-    variable = np.fromfile(directory + "/" + variables, Variable).byteswap() # TODO: only if system is little-endian
+    variable = np.fromfile(directory + "/" + variablefile, Variable).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Variables:")
         for v in variable:
@@ -218,7 +218,7 @@ def load(directory=".",
     fstart = np.zeros(meta["factors"] + 1, np.int64)
     fmap = np.zeros(meta["edges"], np.int64)
     equalPredicate = np.zeros(meta["edges"], np.int32) 
-    with open(directory + "/graph.factors", "rb") as f:
+    with open(directory + "/" + factorfile, "rb") as f:
         try:
             for i in range(meta["factors"]):
                 factor[i]["factorFunction"] = struct.unpack('!h', f.read(2))[0]
