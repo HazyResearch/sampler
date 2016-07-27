@@ -101,7 +101,7 @@ class FactorGraph(object):
 
     def potential(self, var, value):
         p = 0.0
-        for i in range(self.vstart[self.variable[var]["variableId"]], self.vstart[self.variable[var]["variableId"] + 1]):
+        for i in range(self.vstart[var], self.vstart[var + 1]):
             #p += self.factor[self.vmap[i]]["featureValue"] \
             #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
             #   * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
