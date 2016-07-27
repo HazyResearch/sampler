@@ -121,7 +121,6 @@ class FactorGraph(object):
         return 1
 
     def FUNC_ISTRUE(self, factor_id, var_id, value):
-        factor = self.factor[factor_id]
         for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
             v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
             if v == 0:
