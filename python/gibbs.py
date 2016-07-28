@@ -293,7 +293,7 @@ def load(directory=".",
     weight_data = np.memmap(directory + "/" + weightfile, mode="c")
     weight = np.empty(meta["weights"], Weight)
     load_weights(weight_data, meta["weights"], weight)
-    weight.byteswap() # TODO: only if system is little-endian
+    #weight.byteswap() # TODO: only if system is little-endian
     #del data # TODO: data.close()?
     if print_info and not print_only_meta:
         print("Weights:")
@@ -306,7 +306,7 @@ def load(directory=".",
     variable_data = np.memmap(directory + "/" + variablefile, mode="c")
     variable = np.empty(meta["variables"], Variable)
     load_variables(variable_data, meta["variables"], variable)
-    variable.byteswap() # TODO: only if system is little-endian
+    #variable.byteswap() # TODO: only if system is little-endian
     # TODO: clear variable data?
     if print_info and not print_only_meta:
         print("Variables:")
@@ -326,7 +326,7 @@ def load(directory=".",
     fmap = np.zeros(meta["edges"], np.int64)
     equalPredicate = np.zeros(meta["edges"], np.int32) 
     load_factors(factor_data, meta["factors"], factor, fstart, fmap, equalPredicate)
-    factor.byteswap() # TODO: only if system is little-endian
+    #factor.byteswap() # TODO: only if system is little-endian
     # TODO: byteswap fstart, fmap, equalPredicate
     if print_info and not print_only_meta:
         print(factor)
