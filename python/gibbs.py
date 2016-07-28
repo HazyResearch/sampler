@@ -136,11 +136,38 @@ class FactorGraph(object):
     def potential(self, var_samp, value):
         p = 0.0
         for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
+            factor_id = self.vmap[k]
+
+            ### eval_factor ###
+            ef = 1
+            if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
+                #print("FUNC_EQUAL")
+                #print("var_id:", var_id)
+                #print("value:", value)
+                v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+                #print(v)
+                for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+                    w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                    #print(w)
+                    if v != w:
+                        ef = -1
+                        break
+            elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
+                for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+                    v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                    if v == 0:
+                        ef = -1
+                        break
+            else: # FUNC_UNDEFINED
+                print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
+                raise NotImplementedError("Factor function is not implemented.")
+            ### end eval_factor ###
+
             #p += self.factor[self.vmap[i]]["featureValue"] \
             #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
             #   * self.eval_factor(self.vmap[i], var_samp, value) # TODO: account for factor and weight
             p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
-               * self.eval_factor(self.vmap[k], var_samp, value) # TODO: account for factor and weight
+               * ef
         return p
 
     #FUNC_IMPLY_NATURAL = 0,
@@ -153,27 +180,7 @@ class FactorGraph(object):
     #FUNC_IMPLY_MLN = 13,
 
     def eval_factor(self, factor_id, var_id=-1, value=-1):
-        if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-            #print("FUNC_EQUAL")
-            #print("var_id:", var_id)
-            #print("value:", value)
-            v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
-            #print(v)
-            for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                w = value if (self.fmap[l] == var_id) else self.variable[self.fmap[l]]["initialValue"]
-                #print(w)
-                if v != w:
-                    return -1
-            return 1
-        elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
-            for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                v = value if (self.fmap[l] == var_id) else self.variable[self.fmap[l]]["initialValue"]
-                if v == 0:
-                    return -1
-            return 1
-        else: # FUNC_UNDEFINED
-            print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
-            raise NotImplementedError("Factor function is not implemented.")
+        pass
             
         #return self.FUNC_UNDEFINED(self.factor[factor_id], var, value)
         #return {
