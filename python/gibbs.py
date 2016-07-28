@@ -86,16 +86,14 @@ class FactorGraph(object):
 
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
-        #sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
         sample = np.zeros(self.variable.shape[0], np.int32)
-        #sample = np.zeros(sweeps, np.float64)
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
-                #sample[s, v] = self.sample(v)
 
                 ### sample ###
                 cardinality = self.variable[var_samp]["cardinality"]
                 for value in range(cardinality):
+
                     ### potential ###
                     p = 0.0
                     for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
@@ -104,14 +102,9 @@ class FactorGraph(object):
                         ### eval_factor ###
                         ef = 1
                         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-                            #print("FUNC_EQUAL")
-                            #print("var_id:", var_id)
-                            #print("value:", value)
                             v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
-                            #print(v)
                             for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
                                 w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
-                                #print(w)
                                 if v != w:
                                     ef = -1
                                     break
@@ -126,32 +119,28 @@ class FactorGraph(object):
                             raise NotImplementedError("Factor function is not implemented.")
                         ### end eval_factor ###
 
-                        #p += self.factor[self.vmap[i]]["featureValue"] \
-                        #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
-                        #   * self.eval_factor(self.vmap[i], var_samp, value) # TODO: account for factor and weight
+                        # self.factor[self.vmap[i]]["featureValue"] \
                         p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
                            * ef
                     ### end potential ###
+
                     self.Z[value] = math.exp(p)
 
-                #Z = np.cumsum(Z)
                 for j in range(1, cardinality):
                     self.Z[j] += self.Z[j - 1]
 
                 z = random.random() * self.Z[cardinality - 1]
                 # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
                 self.variable[var_samp]["initialValue"] = np.argmax(self.Z >= z)
-                #print(self.Z[0:cardinality])
-                #print(z)
-                #print(self.variable[var]["initialValue"])
-                #print()
 
                 sample[var_samp] += self.variable[var_samp]["initialValue"]
                 ### end sample ###
+
             print(sweep + 1)
             print(np.max(sample))
             print(np.min(sample))
             print()
+
         sample.sort()
         for i in range(0, self.variable.shape[0], self.variable.shape[0] / 100):
             print(i, sample[i])
@@ -163,9 +152,6 @@ class FactorGraph(object):
             count[min(sample[i] * bins / sweeps, bins - 1)] += 1
         for i in range(bins):
             print(i, count[i])
-        #print(count)
-        # TODO: histogram
-        #print(sample)
         #return sample
 
     def sample(self, var_samp):
