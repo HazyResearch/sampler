@@ -1,6 +1,7 @@
 #include "inference_result.h"
 #include "factor_graph.h"
 #include <iostream>
+#include <iomanip>
 #include <memory>
 
 namespace dd {
@@ -206,10 +207,23 @@ void InferenceResult::show_marginal_histogram(std::ostream &output) const {
     }
   }
   abc[9] += abc[10];
+
+  // save ostream settings
+  const std::ios::fmtflags flags( output.flags() );
+  const size_t prec = output.precision();
+
+  // set format for numbers
+  output << std::fixed; // specify number of decimals (rather than sig figs)
+  output << std::setprecision(1); // 1 digit after decimal point
+
   for (int i = 0; i < 10; ++i) {
-    output << "PROB BIN 0." << i << "~0." << (i + 1) << "  -->  # " << abc[i]
+    output << "PROB BIN " << (float) i / 10 << "~" << (float) (i + 1) / 10 << "  -->  # " << abc[i]
            << std::endl;
   }
+
+  // restore ostream settings
+  output.flags(flags);
+  output << std::setprecision(prec);
 }
 
 void InferenceResult::dump_marginals_in_text(std::ostream &text_output) const {
