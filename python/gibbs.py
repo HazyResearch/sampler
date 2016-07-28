@@ -22,14 +22,12 @@ Meta = np.dtype([('weights',        np.int64),
 #Meta_ = numba.from_dtype(Meta)
 
 # TODO: uint or int
-Weight  = np.dtype([("weightId",     np.int64), # TODO: could omit this from storage to save space
-                    ("isFixed",      np.bool),
+Weight  = np.dtype([("isFixed",      np.bool),
                     ("initialValue", np.float64)])
-#Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 Weight_ = numba.from_dtype(Weight)
+#Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 
-Variable  = np.dtype([("variableId",   np.int64), # could omit this from storage to save space
-                      ("isEvidence",   np.bool),
+Variable  = np.dtype([("isEvidence",   np.bool),
                       ("initialValue", np.int32),
                       ("dataType",     np.int16),
                       ("cardinality",  np.int32)])
@@ -44,7 +42,6 @@ Variable_ = numba.from_dtype(Variable)
 #WeightReference_ = numba.from_dtype(WeightReference)
 
 Factor  = np.dtype([("factorFunction", np.int16),
-                    ("arity",          np.int32),
                     ("weightId",       np.int64),
                     ("featureValue",   np.float64),
                    ])
@@ -57,20 +54,21 @@ Factor_ = numba.from_dtype(Factor)
 #        ('variable', Variable_)]
 spec = [
         #('meta', Meta_[:]), # causes problems
-        ('weight', Weight_[:]),
-        ('variable', Variable_[:]),
-        ('factor', Factor_[:]),
-        ('fstart', numba.int64[:]),
-        ('fmap',   numba.int64[:]),
-        ('vstart', numba.int64[:]),
-        ('vmap',   numba.int64[:]),
-        ('Z',      numba.float64[:])
+        ('weight',         Weight_[:]),
+        ('variable',       Variable_[:]),
+        ('factor',         Factor_[:]),
+        ('fstart',         numba.int64[:]),
+        ('fmap',           numba.int64[:]),
+        ('vstart',         numba.int64[:]),
+        ('vmap',           numba.int64[:]),
+        ('equalPredicate', numba.int32[:]),
+        ('Z',              numba.float64[:])
        ]
 
 @jitclass(spec)
 class FactorGraph(object):
 
-    def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap):
+    def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate):
         self.weight = weight
         self.variable = variable
         self.factor = factor
@@ -78,6 +76,7 @@ class FactorGraph(object):
         self.fmap = fmap
         self.vstart = vstart
         self.vmap = vmap
+        self.equalPredicate = equalPredicate
 
         cardinality = 0
         for v in self.variable:
@@ -185,25 +184,92 @@ def compute_var_map(nvar, nedge, fstart, fmap):
   
     return vstart, vmap
 
-#@jit(nopython=True)
+@jit(nopython=True)
+def reverse(data, start, end):
+    end -= 1
+    while (start < end):
+        data[start], data[end] = data[end], data[start]
+        start += 1
+        end -= 1
+
+@jit(nopython=True)
 def load_weights(data, nweights, weight):
-    #help(data)
     for i in range(nweights):
         # TODO: read types from struct?
         # TODO: byteswap only if system is little-endian
 
-        weightId     = np.frombuffer(data[(17 * i):(17 * i + 8)], np.int64, 1)[0].byteswap()
-        isFixed      =               data[17 * i + 8].byteswap()
-        initialValue = np.frombuffer(data[(17 * i + 9):(17 * i + 17)], np.float64, 1)[0].byteswap()
+        reverse(data, 17 * i, 17 * i + 8)
+        weightId = np.frombuffer(data[(17 * i):(17 * i + 8)], dtype=np.int64)[0]
+        #weightId = np.frombuffer(data[(17 * i):(17 * i + 8):-1], dtype=np.int64)[0]
+        isFixed      =               data[17 * i + 8]
+        reverse(data, 17 * i + 9, 17 * i + 17)
+        initialValue = np.frombuffer(data[(17 * i + 9):(17 * i + 17)], dtype=np.float64)[0]
 
-        weight[i]["weightId"] = weightId
-        weight[i]["isFixed"] = isFixed
-        weight[i]["initialValue"] = initialValue
-    #    print(data[(17 * i + 8)])
-    #    print(data[(17 * i + 9):(17 * i + 16)])
-    #help(data)
-    print("DONE")
-    #return weight
+        weight[weightId]["isFixed"] = isFixed
+        weight[weightId]["initialValue"] = initialValue
+    print("DONE WITH WEIGHTS")
+
+@jit(nopython=True)
+def load_variables(data, nvariables, variable):
+    for i in range(nvariables):
+        # TODO: read types from struct?
+        # TODO: byteswap only if system is little-endian
+
+        
+        reverse(data, 19 * i, 19 * i + 8)
+        variableId   = np.frombuffer(data[(19 * i):(19 * i + 8)], dtype=np.int64)[0]
+        #variableId = variableId.byteswap()
+        isEvidence   =               data[19 * i + 8]
+        reverse(data, 19 * i + 9, 19 * i + 13)
+        initialValue = np.frombuffer(data[(19 * i + 9):(19 * i + 13)], dtype=np.int32)[0]
+        reverse(data, 19 * i + 13, 19 * i + 15)
+        dataType     = np.frombuffer(data[(19 * i + 13):(19 * i + 15)], dtype=np.int16)[0]
+        reverse(data, 19 * i + 15, 19 * i + 19)
+        cardinality  = np.frombuffer(data[(19 * i + 15):(19 * i + 19)], dtype=np.int32)[0]
+        #print(variableId)
+        #print(isEvidence)
+        #print(initialValue)
+        #print(dataType)
+        #print(cardinality)
+
+        variable[variableId]["isEvidence"] = isEvidence
+        variable[variableId]["initialValue"] = initialValue
+        variable[variableId]["dataType"] = dataType
+        variable[variableId]["cardinality"] = cardinality
+    print("DONE WITH VARS")
+
+@jit(nopython=True)
+def load_factors(data, nfactors, factor, fstart, fmap, equalPredicate):
+    index = 0
+    for i in range(nfactors):
+        reverse(data, index, index + 2)
+        factor[i]["factorFunction"] = np.frombuffer(data[index:(index + 2)], dtype=np.int16)[0]
+
+        reverse(data, index + 2, index + 6)
+        arity = np.frombuffer(data[(index + 2):(index + 6)], dtype=np.int32)[0]
+
+        index += 6 # TODO: update index once per loop?
+    
+        fstart[i + 1] = fstart[i] + arity
+        for j in range(arity):
+            reverse(data, index, index + 8)
+            fmap[fstart[i] + j] = np.frombuffer(data[index:(index + 8)], dtype=np.int64)[0]
+            reverse(data, index + 8, index + 12)
+            equalPredicate[fstart[i] + j] = np.frombuffer(data[(index + 8):(index + 12)], dtype=np.int32)[0]
+            index += 12
+
+        # TODO: handle FUNC_AND_CATEGORICAL
+        reverse(data, index, index + 8)
+        factor[i]["weightId"]     = np.frombuffer(data[index:(index + 8)], dtype=np.int64)[0]
+        reverse(data, index + 8, index + 16)
+        factor[i]["featureValue"] = np.frombuffer(data[(index + 8):(index + 16)], dtype=np.float64)[0]
+        index += 16
+        #variableId1     long    8
+        #isPositive1     bool    1
+        #variableId2     long    8
+        #isPositive2     bool    1
+        #info += [(factor_type, arity, variable_id.tolist(), equal_predicate.tolist(), weight_id, feature_value)]
+    print("DONE WITH FACTORS")
 
 def load(directory=".",
          metafile="graph.meta",
@@ -227,26 +293,28 @@ def load(directory=".",
         print("    edges:    ", meta["edges"])
         print()
     
-    # TODO: need to sort by weightID
-    data = np.memmap(directory + "/" + weightfile, mode="r")
+    weight_data = np.memmap(directory + "/" + weightfile, mode="c")
     weight = np.empty(meta["weights"], Weight)
-    load_weights(data, meta["weights"], weight)
-    del data # TODO: data.close()?
-    #weight = np.fromfile(directory + "/" + weightfile, Weight).byteswap() # TODO: only if system is little-endian
+    load_weights(weight_data, meta["weights"], weight)
+    weight.byteswap() # TODO: only if system is little-endian
+    #del data # TODO: data.close()?
     if print_info and not print_only_meta:
         print("Weights:")
-        for w in weight:
-            print("    weightId:", w["weightId"])
+        for (i, w) in enumerate(weight):
+            print("    weightId:", i)
             print("        isFixed:     ", w["isFixed"])
             print("        initialValue:", w["initialValue"])
         print()
 
-    # TODO: need to sort by variableId
-    variable = np.fromfile(directory + "/" + variablefile, Variable).byteswap() # TODO: only if system is little-endian
+    variable_data = np.memmap(directory + "/" + variablefile, mode="c")
+    variable = np.empty(meta["variables"], Variable)
+    load_variables(variable_data, meta["variables"], variable)
+    variable.byteswap() # TODO: only if system is little-endian
+    # TODO: clear variable data?
     if print_info and not print_only_meta:
         print("Variables:")
-        for v in variable:
-            print("    variableId:", v["variableId"])
+        for (i, v) in enumerate(variable):
+            print("    variableId:", i)
             print("        isEvidence:  ", v["isEvidence"])
             print("        initialValue:", v["initialValue"])
             print("        dataType:    ", v["dataType"], "(", dataType(v["dataType"]), ")")
@@ -255,37 +323,19 @@ def load(directory=".",
             print()
 
     # TODO: might need to sort by factorId? (or just load in right spot)
+    factor_data = np.memmap(directory + "/" + factorfile, mode="c")
     factor = np.empty(meta["factors"], Factor)
     fstart = np.zeros(meta["factors"] + 1, np.int64)
     fmap = np.zeros(meta["edges"], np.int64)
     equalPredicate = np.zeros(meta["edges"], np.int32) 
-    with open(directory + "/" + factorfile, "rb") as f:
-        try:
-            for i in range(meta["factors"]):
-                factor[i]["factorFunction"] = struct.unpack('!h', f.read(2))[0]
-                factor[i]["arity"] = struct.unpack('!i', f.read(4))[0]
-
-                fstart[i + 1] = fstart[i] + factor[i]["arity"]
-                for j in range(factor[i]["arity"]):
-                    fmap[fstart[i] + j] = struct.unpack('!q', f.read(8))[0]
-                    equalPredicate[fstart[i] + j] = struct.unpack('!i', f.read(4))[0]
-                # TODO: handle FUNC_AND_CATEGORICAL
-                factor[i]["weightId"]     = struct.unpack('!q', f.read(8))[0]
-                factor[i]["featureValue"] = struct.unpack('!d', f.read(8))[0]
-                #variableId1     long    8
-                #isPositive1     bool    1
-                #variableId2     long    8
-                #isPositive2     bool    1
-                #info += [(factor_type, arity, variable_id.tolist(), equal_predicate.tolist(), weight_id, feature_value)]
-        finally:
-            pass
-    
+    load_factors(factor_data, meta["factors"], factor, fstart, fmap, equalPredicate)
     factor.byteswap() # TODO: only if system is little-endian
+    # TODO: byteswap fstart, fmap, equalPredicate
     if print_info and not print_only_meta:
         print(factor)
 
-    (vstart, vmap) = compute_var_map(nvar, nedge, fstart, fmap)
-    return meta, weight, variable, factor, fstart, fmap, vstart, vmap
+    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
+    return meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
     #    #variable[1].value = 1
@@ -295,7 +345,6 @@ def load(directory=".",
 
 def print_factor(f):
     print("factorFunction: " + str(f["factorFunction"]))
-    print("arity:          " + str(f["arity"]))
     print("weightId:       " + str(f["weightId"]))
     print("featureValue:   " + str(f["featureValue"]))
 
@@ -357,9 +406,10 @@ def main(argv=None):
     arg = parser.parse_args(argv)
     print(arg)
 
-    (meta, weight, variable, factor, fstart, fmap, vstart, vmap) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
+    (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
+    #(meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True)
 
-    fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
+    fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
 
     res = fg.gibbs(arg.inference)
 
