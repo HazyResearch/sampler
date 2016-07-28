@@ -92,7 +92,62 @@ class FactorGraph(object):
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
                 #sample[s, v] = self.sample(v)
-                sample[var_samp] += self.sample(var_samp)
+
+                ### sample ###
+                cardinality = self.variable[var_samp]["cardinality"]
+                for value in range(cardinality):
+                    ### potential ###
+                    p = 0.0
+                    for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
+                        factor_id = self.vmap[k]
+
+                        ### eval_factor ###
+                        ef = 1
+                        if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
+                            #print("FUNC_EQUAL")
+                            #print("var_id:", var_id)
+                            #print("value:", value)
+                            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+                            #print(v)
+                            for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+                                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                                #print(w)
+                                if v != w:
+                                    ef = -1
+                                    break
+                        elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
+                            for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+                                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                                if v == 0:
+                                    ef = -1
+                                    break
+                        else: # FUNC_UNDEFINED
+                            print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
+                            raise NotImplementedError("Factor function is not implemented.")
+                        ### end eval_factor ###
+
+                        #p += self.factor[self.vmap[i]]["featureValue"] \
+                        #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
+                        #   * self.eval_factor(self.vmap[i], var_samp, value) # TODO: account for factor and weight
+                        p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
+                           * ef
+                    ### end potential ###
+                    self.Z[value] = math.exp(p)
+
+                #Z = np.cumsum(Z)
+                for j in range(1, cardinality):
+                    self.Z[j] += self.Z[j - 1]
+
+                z = random.random() * self.Z[cardinality - 1]
+                # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
+                self.variable[var_samp]["initialValue"] = np.argmax(self.Z >= z)
+                #print(self.Z[0:cardinality])
+                #print(z)
+                #print(self.variable[var]["initialValue"])
+                #print()
+
+                sample[var_samp] += self.variable[var_samp]["initialValue"]
+                ### end sample ###
             print(sweep + 1)
             print(np.max(sample))
             print(np.min(sample))
@@ -114,60 +169,8 @@ class FactorGraph(object):
         #return sample
 
     def sample(self, var_samp):
+        pass
         #print(var)
-        cardinality = self.variable[var_samp]["cardinality"]
-        for value in range(cardinality):
-            ### potential ###
-            p = 0.0
-            for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
-                factor_id = self.vmap[k]
-
-                ### eval_factor ###
-                ef = 1
-                if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-                    #print("FUNC_EQUAL")
-                    #print("var_id:", var_id)
-                    #print("value:", value)
-                    v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
-                    #print(v)
-                    for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                        w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
-                        #print(w)
-                        if v != w:
-                            ef = -1
-                            break
-                elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
-                    for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                        v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
-                        if v == 0:
-                            ef = -1
-                            break
-                else: # FUNC_UNDEFINED
-                    print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
-                    raise NotImplementedError("Factor function is not implemented.")
-                ### end eval_factor ###
-
-                #p += self.factor[self.vmap[i]]["featureValue"] \
-                #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
-                #   * self.eval_factor(self.vmap[i], var_samp, value) # TODO: account for factor and weight
-                p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
-                   * ef
-            ### potential ###
-            self.Z[value] = math.exp(p)
-
-        #Z = np.cumsum(Z)
-        for j in range(1, cardinality):
-            self.Z[j] += self.Z[j - 1]
-
-        z = random.random() * self.Z[cardinality - 1]
-        # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
-        self.variable[var_samp]["initialValue"] = np.argmax(self.Z >= z)
-        #print(self.Z[0:cardinality])
-        #print(z)
-        #print(self.variable[var]["initialValue"])
-        #print()
-
-        return self.variable[var_samp]["initialValue"]
 
     def potential(self, var_samp, value):
         pass
