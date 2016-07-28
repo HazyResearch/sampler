@@ -185,28 +185,26 @@ void InferenceResult::show_marginal_snippet(std::ostream &output) const {
   output << "   ..." << std::endl;
 }
 
-void InferenceResult::show_marginal_histogram(std::ostream &output) const {
+void InferenceResult::show_marginal_histogram(std::ostream &output, const size_t &bins) const {
   // show a histogram of inference results
   output << "INFERENCE CALIBRATION (QUERY BINS):" << std::endl;
-  std::vector<num_variables_t> abc;
-  for (int i = 0; i <= 10; ++i) {
-    abc.push_back(0);
-  }
+  std::vector<num_variables_t> abc(bins + 1, 0);
+
   num_variables_t bad = 0;
   for (variable_id_t j = 0; j < nvars; ++j) {
     const Variable &variable = fg.variables[j];
     if (!opts.should_sample_evidence && variable.is_evid) {
       continue;
     }
-    int bin =
-        (int)((double)agg_means[variable.id] / agg_nsamples[variable.id] * 10);
-    if (bin >= 0 && bin <= 10) {
+    size_t bin =
+        (size_t)((double)agg_means[variable.id] / agg_nsamples[variable.id] * bins);
+    if (bin >= 0 && bin <= bins) {
       ++abc[bin];
     } else {
       ++bad;
     }
   }
-  abc[9] += abc[10];
+  abc[bins - 1] += abc[bins];
 
   // save ostream settings
   const std::ios::fmtflags flags( output.flags() );
@@ -216,8 +214,8 @@ void InferenceResult::show_marginal_histogram(std::ostream &output) const {
   output << std::fixed; // specify number of decimals (rather than sig figs)
   output << std::setprecision(1); // 1 digit after decimal point
 
-  for (int i = 0; i < 10; ++i) {
-    output << "PROB BIN " << (float) i / 10 << "~" << (float) (i + 1) / 10 << "  -->  # " << abc[i]
+  for (size_t i = 0; i < bins; ++i) {
+    output << "PROB BIN " << (float) i / bins << "~" << (float) (i + 1) / bins << "  -->  # " << abc[i]
            << std::endl;
   }
 
