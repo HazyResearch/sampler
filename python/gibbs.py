@@ -9,6 +9,7 @@ import math
 import random
 import sys
 import argparse
+import mmap
 
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
@@ -21,13 +22,13 @@ Meta = np.dtype([('weights',        np.int64),
 #Meta_ = numba.from_dtype(Meta)
 
 # TODO: uint or int
-Weight  = np.dtype([("weightId",     np.int64),
+Weight  = np.dtype([("weightId",     np.int64), # TODO: could omit this from storage to save space
                     ("isFixed",      np.bool),
                     ("initialValue", np.float64)])
 #Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 Weight_ = numba.from_dtype(Weight)
 
-Variable  = np.dtype([("variableId",   np.int64),
+Variable  = np.dtype([("variableId",   np.int64), # could omit this from storage to save space
                       ("isEvidence",   np.bool),
                       ("initialValue", np.int32),
                       ("dataType",     np.int16),
@@ -166,6 +167,43 @@ def dataType(i):
   return {0: "Boolean",
           1: "Categorical"}.get(i, "Unknown")
 
+@jit# TODO: (nopython=True) 
+def compute_var_map(nvar, nedge, fstart, fmap):
+    vstart = np.zeros(nvar + 1, np.int64)
+    vmap = np.zeros(nedge, np.int64)
+  
+    for i in fmap:
+        vstart[i + 1] += 1
+  
+    vstart = np.cumsum(vstart)
+    index = vstart.copy()
+
+    for i in range(len(fstart) - 1):
+        for j in range(fstart[i], fstart[i + 1]):
+            vmap[index[fmap[j]]] = i
+            index[fmap[j]] += 1
+  
+    return vstart, vmap
+
+#@jit(nopython=True)
+def load_weights(data, nweights, weight):
+    #help(data)
+    for i in range(nweights):
+        # TODO: read types from struct?
+        # TODO: byteswap only if system is little-endian
+
+        weightId     = np.frombuffer(data[(17 * i):(17 * i + 8)], np.int64, 1)[0].byteswap()
+        isFixed      =               data[17 * i + 8].byteswap()
+        initialValue = np.frombuffer(data[(17 * i + 9):(17 * i + 17)], np.float64, 1)[0].byteswap()
+
+        weight[i]["weightId"] = weightId
+        weight[i]["isFixed"] = isFixed
+        weight[i]["initialValue"] = initialValue
+    #    print(data[(17 * i + 8)])
+    #    print(data[(17 * i + 9):(17 * i + 16)])
+    #help(data)
+    print("DONE")
+    #return weight
 
 def load(directory=".",
          metafile="graph.meta",
@@ -177,9 +215,10 @@ def load(directory=".",
 
     # TODO: check that entire file is read (nothing more/nothing less)
     # TODO: make error when file does not exist less dumb
-    meta = np.genfromtxt(directory + "/" + metafile,
-                         delimiter=',',
-                         dtype=Meta)
+    meta = np.loadtxt(directory + "/" + metafile,
+                      delimiter=',',
+                      dtype=Meta)
+    meta = meta[()] # convert from 0-dimensional ndarray to scalar
     if print_info:
         print("Meta:")
         print("    weights:  ", meta["weights"])
@@ -188,10 +227,12 @@ def load(directory=".",
         print("    edges:    ", meta["edges"])
         print()
     
-    #weighs = np.empty(meta["variables"], Weight)
-    
     # TODO: need to sort by weightID
-    weight = np.fromfile(directory + "/" + weightfile, Weight).byteswap() # TODO: only if system is little-endian
+    data = np.memmap(directory + "/" + weightfile, mode="r")
+    weight = np.empty(meta["weights"], Weight)
+    load_weights(data, meta["weights"], weight)
+    del data # TODO: data.close()?
+    #weight = np.fromfile(directory + "/" + weightfile, Weight).byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print("Weights:")
         for w in weight:
@@ -242,29 +283,15 @@ def load(directory=".",
     factor.byteswap() # TODO: only if system is little-endian
     if print_info and not print_only_meta:
         print(factor)
-    return meta, weight, variable, factor, fstart, fmap
+
+    (vstart, vmap) = compute_var_map(nvar, nedge, fstart, fmap)
+    return meta, weight, variable, factor, fstart, fmap, vstart, vmap
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
     #    #variable[1].value = 1
     #    #variable[1] = Variable
 
-@jit
-def compute_var_map(nvar, nedge, fstart, fmap):
-    vstart = np.zeros(nvar + 1, np.int64)
-    vmap = np.zeros(nedge, np.int64)
-  
-    for i in fmap:
-        vstart[i + 1] += 1
-  
-    vstart = np.cumsum(vstart)
-    index = vstart.copy()
 
-    for i in range(len(fstart) - 1):
-        for j in range(fstart[i], fstart[i + 1]):
-            vmap[index[fmap[j]]] = i
-            index[fmap[j]] += 1
-  
-    return vstart, vmap
 
 def print_factor(f):
     print("factorFunction: " + str(f["factorFunction"]))
@@ -330,8 +357,7 @@ def main(argv=None):
     arg = parser.parse_args(argv)
     print(arg)
 
-    (meta, weight, variable, factor, fstart, fmap) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
-    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
+    (meta, weight, variable, factor, fstart, fmap, vstart, vmap) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap)
 
