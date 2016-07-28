@@ -87,16 +87,34 @@ class FactorGraph(object):
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
         #sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
+        sample = np.zeros(self.variable.shape[0], np.int32)
         #sample = np.zeros(sweeps, np.float64)
         for s in range(sweeps):
             for v in range(self.variable.shape[0]):
-                self.sample(v)
                 #sample[s, v] = self.sample(v)
-                #sample[s] = self.sample(v)
+                sample[v] += self.sample(v)
+            print(s + 1)
+            print(np.max(sample))
+            print(np.min(sample))
+            print()
+        sample.sort()
+        for i in range(0, self.variable.shape[0], self.variable.shape[0] / 100):
+            print(i, sample[i])
+        print()
+
+        bins = 10
+        count = np.zeros(bins, dtype=np.int64)
+        for i in range(len(sample)):
+            count[min(sample[i] * bins / sweeps, bins - 1)] += 1
+        for i in range(bins):
+            print(i, count[i])
+        #print(count)
+        # TODO: histogram
         #print(sample)
         #return sample
 
     def sample(self, var):
+        #print(var)
         cardinality = self.variable[var]["cardinality"]
         for i in range(cardinality):
             self.Z[i] = math.exp(self.potential(var, i))
@@ -106,8 +124,13 @@ class FactorGraph(object):
             self.Z[i] += self.Z[i - 1]
 
         z = random.random() * self.Z[cardinality - 1]
-        #print(Z)
+        # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
         self.variable[var]["initialValue"] = np.argmax(self.Z >= z)
+        #print(self.Z[0:cardinality])
+        #print(z)
+        #print(self.variable[var]["initialValue"])
+        #print()
+
         return self.variable[var]["initialValue"]
 
     def potential(self, var, value):
@@ -131,17 +154,22 @@ class FactorGraph(object):
 
     def eval_factor(self, factor_id, var_id=-1, value=-1):
         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
+            #print("FUNC_EQUAL")
+            #print("var_id:", var_id)
+            #print("value:", value)
             v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+            #print(v)
             for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
                 w = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+                #print(w)
                 if v != w:
-                    return 0
+                    return -1
             return 1
         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
             for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
                 v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
                 if v == 0:
-                    return 0
+                    return -1
             return 1
         else: # FUNC_UNDEFINED
             print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
@@ -171,15 +199,14 @@ def compute_var_map(fstart, fmap, vstart, vmap):
     for i in fmap:
         vstart[i + 1] += 1
   
-    vstart = np.cumsum(vstart)
+    for i in range(len(vstart) - 1):
+        vstart[i + 1] += vstart[i]
     index = vstart.copy()
 
     for i in range(len(fstart) - 1):
         for j in range(fstart[i], fstart[i + 1]):
             vmap[index[fmap[j]]] = i
             index[fmap[j]] += 1
-  
-    return vstart, vmap
 
 @jit(nopython=True,cache=True)
 def reverse(data, start, end):
@@ -415,4 +442,8 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+
+# TODO: debug statement for factor
+# TODO: print list of factors for vars and
+#       print list of vars for factors
 
