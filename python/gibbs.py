@@ -89,11 +89,11 @@ class FactorGraph(object):
         #sample = np.zeros((sweeps, self.variable.shape[0]), np.float64)
         sample = np.zeros(self.variable.shape[0], np.int32)
         #sample = np.zeros(sweeps, np.float64)
-        for s in range(sweeps):
-            for v in range(self.variable.shape[0]):
+        for sweep in range(sweeps):
+            for var_samp in range(self.variable.shape[0]):
                 #sample[s, v] = self.sample(v)
-                sample[v] += self.sample(v)
-            print(s + 1)
+                sample[var_samp] += self.sample(var_samp)
+            print(sweep + 1)
             print(np.max(sample))
             print(np.min(sample))
             print()
@@ -113,34 +113,34 @@ class FactorGraph(object):
         #print(sample)
         #return sample
 
-    def sample(self, var):
+    def sample(self, var_samp):
         #print(var)
-        cardinality = self.variable[var]["cardinality"]
-        for i in range(cardinality):
-            self.Z[i] = math.exp(self.potential(var, i))
+        cardinality = self.variable[var_samp]["cardinality"]
+        for j in range(cardinality):
+            self.Z[j] = math.exp(self.potential(var_samp, j))
 
         #Z = np.cumsum(Z)
-        for i in range(1, cardinality):
-            self.Z[i] += self.Z[i - 1]
+        for j in range(1, cardinality):
+            self.Z[j] += self.Z[j - 1]
 
         z = random.random() * self.Z[cardinality - 1]
         # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
-        self.variable[var]["initialValue"] = np.argmax(self.Z >= z)
+        self.variable[var_samp]["initialValue"] = np.argmax(self.Z >= z)
         #print(self.Z[0:cardinality])
         #print(z)
         #print(self.variable[var]["initialValue"])
         #print()
 
-        return self.variable[var]["initialValue"]
+        return self.variable[var_samp]["initialValue"]
 
-    def potential(self, var, value):
+    def potential(self, var_samp, value):
         p = 0.0
-        for i in range(self.vstart[var], self.vstart[var + 1]):
+        for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
             #p += self.factor[self.vmap[i]]["featureValue"] \
             #   * self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
-            #   * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
-            p += self.weight[self.factor[self.vmap[i]]["weightId"]]["initialValue"] \
-               * self.eval_factor(self.vmap[i], var, value) # TODO: account for factor and weight
+            #   * self.eval_factor(self.vmap[i], var_samp, value) # TODO: account for factor and weight
+            p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
+               * self.eval_factor(self.vmap[k], var_samp, value) # TODO: account for factor and weight
         return p
 
     #FUNC_IMPLY_NATURAL = 0,
@@ -159,15 +159,15 @@ class FactorGraph(object):
             #print("value:", value)
             v = value if (self.fmap[self.fstart[factor_id]] == var_id) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
             #print(v)
-            for i in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                w = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+            for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+                w = value if (self.fmap[l] == var_id) else self.variable[self.fmap[l]]["initialValue"]
                 #print(w)
                 if v != w:
                     return -1
             return 1
         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
-            for i in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                v = value if (self.fmap[i] == var_id) else self.variable[self.fmap[i]]["initialValue"]
+            for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+                v = value if (self.fmap[l] == var_id) else self.variable[self.fmap[l]]["initialValue"]
                 if v == 0:
                     return -1
             return 1
