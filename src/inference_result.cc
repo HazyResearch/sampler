@@ -216,7 +216,7 @@ void InferenceResult::show_marginal_histogram(std::ostream &output,
   output << std::setprecision(1);  // 1 digit after decimal point
 
   for (size_t i = 0; i < bins; ++i) {
-    output << "PROB BIN " << (float) i / bins << "~" << (float) (i + 1) / bins
+    output << "PROB BIN " << (float)i / bins << "~" << (float)(i + 1) / bins
            << "  -->  # " << abc[i] << std::endl;
   }
 
