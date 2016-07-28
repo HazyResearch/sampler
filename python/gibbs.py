@@ -166,11 +166,8 @@ def dataType(i):
   return {0: "Boolean",
           1: "Categorical"}.get(i, "Unknown")
 
-@jit# TODO: (nopython=True) 
-def compute_var_map(nvar, nedge, fstart, fmap):
-    vstart = np.zeros(nvar + 1, np.int64)
-    vmap = np.zeros(nedge, np.int64)
-  
+@jit(nopython=True,cache=True) 
+def compute_var_map(fstart, fmap, vstart, vmap):
     for i in fmap:
         vstart[i + 1] += 1
   
@@ -184,7 +181,7 @@ def compute_var_map(nvar, nedge, fstart, fmap):
   
     return vstart, vmap
 
-@jit(nopython=True)
+@jit(nopython=True,cache=True)
 def reverse(data, start, end):
     end -= 1
     while (start < end):
@@ -192,7 +189,7 @@ def reverse(data, start, end):
         start += 1
         end -= 1
 
-@jit(nopython=True)
+@jit(nopython=True,cache=True)
 def load_weights(data, nweights, weight):
     for i in range(nweights):
         # TODO: read types from struct?
@@ -209,7 +206,7 @@ def load_weights(data, nweights, weight):
         weight[weightId]["initialValue"] = initialValue
     print("DONE WITH WEIGHTS")
 
-@jit(nopython=True)
+@jit(nopython=True,cache=True)
 def load_variables(data, nvariables, variable):
     for i in range(nvariables):
         # TODO: read types from struct?
@@ -238,7 +235,7 @@ def load_variables(data, nvariables, variable):
         variable[variableId]["cardinality"] = cardinality
     print("DONE WITH VARS")
 
-@jit(nopython=True)
+@jit(nopython=True,cache=True)
 def load_factors(data, nfactors, factor, fstart, fmap, equalPredicate):
     index = 0
     for i in range(nfactors):
@@ -334,7 +331,9 @@ def load(directory=".",
     if print_info and not print_only_meta:
         print(factor)
 
-    (vstart, vmap) = compute_var_map(meta["variables"], meta["edges"], fstart, fmap)
+    vstart = np.zeros(meta["variables"] + 1, np.int64)
+    vmap = np.zeros(meta["edges"], np.int64)
+    compute_var_map(fstart, fmap, vstart, vmap)
     return meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate
     #    variable = np.empty(100, Variable)
     #    #variable["value"].value = 1
