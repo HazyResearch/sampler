@@ -90,52 +90,8 @@ class FactorGraph(object):
         sample = np.zeros(self.variable.shape[0], np.int32)
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
+                sample[var_samp] += self.sample(var_samp)
 
-                ### sample ###
-                cardinality = self.variable[var_samp]["cardinality"]
-                for value in range(cardinality):
-
-                    ### potential ###
-                    p = 0.0
-                    for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
-                        factor_id = self.vmap[k]
-
-                        ### eval_factor ###
-                        ef = 1
-                        if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-                            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["value"]
-                            for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
-                                if v != w:
-                                    ef = -1
-                                    break
-                        elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
-                            for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
-                                if v == 0:
-                                    ef = -1
-                                    break
-                        else: # FUNC_UNDEFINED
-                            print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
-                            raise NotImplementedError("Factor function is not implemented.")
-                        ### end eval_factor ###
-
-                        # self.factor[self.vmap[i]]["featureValue"] \
-                        p += self.weight[self.factor[self.vmap[k]]["weightId"]]["weight"] \
-                           * ef
-                    ### end potential ###
-
-                    self.Z[value] = math.exp(p)
-
-                for j in range(1, cardinality):
-                    self.Z[j] += self.Z[j - 1]
-
-                z = random.random() * self.Z[cardinality - 1]
-                # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
-                self.variable[var_samp]["value"] = np.argmax(self.Z >= z)
-
-                sample[var_samp] += self.variable[var_samp]["value"]
-                ### end sample ###
 
             print(sweep + 1)
             print(np.max(sample))
@@ -156,11 +112,29 @@ class FactorGraph(object):
         #return sample
 
     def sample(self, var_samp):
-        pass
-        #print(var)
+        cardinality = self.variable[var_samp]["cardinality"]
+        for value in range(cardinality):
+            self.Z[value] = math.exp(self.potential(var_samp, value))
+
+        for j in range(1, cardinality):
+            self.Z[j] += self.Z[j - 1]
+
+        z = random.random() * self.Z[cardinality - 1]
+        # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
+        self.variable[var_samp]["value"] = np.argmax(self.Z >= z)
+
+        return self.variable[var_samp]["value"]
 
     def potential(self, var_samp, value):
-        pass
+        p = 0.0
+        for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
+            factor_id = self.vmap[k]
+
+
+            # self.factor[self.vmap[i]]["featureValue"] \
+            p += self.weight[self.factor[self.vmap[k]]["weightId"]]["weight"] \
+               * self.eval_factor(factor_id, var_samp, value)
+        return p
 
     #FUNC_IMPLY_NATURAL = 0,
     #FUNC_OR = 1,
@@ -171,8 +145,23 @@ class FactorGraph(object):
     #FUNC_AND_CATEGORICAL = 12,
     #FUNC_IMPLY_MLN = 13,
 
-    def eval_factor(self, factor_id, var_id=-1, value=-1):
-        pass
+    def eval_factor(self, factor_id, var_samp=-1, value=-1):
+        if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
+            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["value"]
+            for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
+                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
+                if v != w:
+                    return -1
+            return 1
+        elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
+            for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
+                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
+                if v == 0:
+                    return -1
+            return 1
+        else: # FUNC_UNDEFINED
+            print("Error: Factor Function", self.factor[factor_id]["factorFunction"], "( used in factor", factor_id, ") is not implemented.")
+            raise NotImplementedError("Factor function is not implemented.")
             
         #return self.FUNC_UNDEFINED(self.factor[factor_id], var, value)
         #return {
