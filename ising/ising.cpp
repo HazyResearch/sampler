@@ -284,8 +284,8 @@ int main(int argc, char *argv[])
         v1.variableId = 2 * i;
         v1.equalPredicate = 0;
         VariableReference v2;
-        v1.variableId = 2 * i + 1;
-        v1.equalPredicate = 0;
+        v2.variableId = 2 * i + 1;
+        v2.equalPredicate = 0;
 
         Factor f1;
         f1.factorFunction = 4;
