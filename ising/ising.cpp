@@ -6,8 +6,15 @@
 #include <inttypes.h>
 #include <endian.h>
 #include <assert.h>
+#include <math.h>
+#include <random>
 
 using namespace std;
+
+
+std::random_device rd;
+std::mt19937 e2(rd());
+std::uniform_real_distribution<> dist(0, 1);
 
 template <int num_bytes>
 inline size_t write_be(FILE *output, void *value);
@@ -124,6 +131,8 @@ void write(vector<Variable> variable, vector<Weight> weight, vector<Factor> fact
 
 int main(int argc, char *argv[])
 {
+    // Ising
+    /*
     const size_t N = 1000;
     const size_t M = 1000;
     const double WEIGHT = 0.1;
@@ -186,6 +195,127 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    write(variable, weight, factor);
+    */
+
+    const size_t N = 4;
+    const double a = 0.0;
+    const double b = 0.0;
+    const double c = 0.0;
+
+
+    vector<Weight> weight;
+
+    Weight w;
+    w.weightId = 0;
+    w.isFixed = 0;
+    w.initialValue = 0;
+    weight.push_back(w);
+
+    w.weightId = 1;
+    w.isFixed = 0;
+    w.initialValue = 0;
+    weight.push_back(w);
+
+    w.weightId = 2;
+    w.isFixed = 0;
+    w.initialValue = 0;
+    weight.push_back(w);
+
+    long double Z[4];
+    Z[0] = exp(-a + -b +  c); // 00
+    Z[1] = exp(-a +  b + -c); // 01
+    Z[2] = exp( a + -b + -c); // 10
+    Z[3] = exp( a +  b +  c); // 11
+    cout << "Z[0]: " << Z[0] << "\n";
+    cout << "Z[1]: " << Z[1] << "\n";
+    cout << "Z[2]: " << Z[2] << "\n";
+    cout << "Z[3]: " << Z[3] << "\n";
+
+    Z[1] += Z[0];
+    Z[2] += Z[1];
+    Z[3] += Z[2];
+    vector<Variable> variable;
+    vector<Factor> factor;
+    int count[4];
+    count[0] = 0;
+    count[1] = 0;
+    count[2] = 0;
+    count[3] = 0;
+    for (size_t i = 0; i < N; i++) {
+        long double r = dist(e2) * Z[3];
+
+        uint32_t index;
+        if (r < Z[0]) {
+            index = 0;
+        }
+        else if (r < Z[1]) {
+            index = 1;
+        }
+        else if (r < Z[2]) {
+            index = 2;
+        }
+        else {
+            index = 3;
+        }
+        index = (i % 4);
+        count[index]++;
+        cout << index << "\n";
+
+        Variable v;
+
+        v.variableId = 2 * i;
+        v.isEvidence = 1;
+        v.initialValue = (index == 2 || index == 3);
+        v.dataType = 0;
+        v.cardinality = 2;
+        variable.push_back(v);
+
+        v.variableId = 2 * i + 1;
+        v.isEvidence = 1;
+        v.initialValue = (index == 1 || index == 3);
+        v.dataType = 0;
+        v.cardinality = 2;
+        variable.push_back(v);
+
+
+        VariableReference v1;
+        v1.variableId = 2 * i;
+        v1.equalPredicate = 0;
+        VariableReference v2;
+        v1.variableId = 2 * i + 1;
+        v1.equalPredicate = 0;
+
+        Factor f1;
+        f1.factorFunction = 4;
+        f1.arity = 1;
+        f1.variableReferences.push_back(v1);
+        f1.weightReferences.weightId = 0;
+        f1.weightReferences.featureValue = 1;
+        factor.push_back(f1);
+
+        Factor f2;
+        f2.factorFunction = 4;
+        f2.arity = 1;
+        f2.variableReferences.push_back(v2);
+        f2.weightReferences.weightId = 1;
+        f2.weightReferences.featureValue = 1;
+        factor.push_back(f2);
+
+        Factor f3;
+        f3.factorFunction = 3;
+        f3.arity = 2;
+        f3.variableReferences.push_back(v1);
+        f3.variableReferences.push_back(v2);
+        f3.weightReferences.weightId = 2;
+        f3.weightReferences.featureValue = 1;
+        factor.push_back(f3);
+    }
+    cout << count[0] << "\n";;
+    cout << count[1] << "\n";;
+    cout << count[2] << "\n";;
+    cout << count[3] << "\n";;
 
     write(variable, weight, factor);
 
