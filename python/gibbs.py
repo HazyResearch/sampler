@@ -85,6 +85,20 @@ class FactorGraph(object):
         self.Z = np.zeros(cardinality)
 
 
+    def learn(self, sweeps, step):
+        # TODO: give option do not store result, or just store tally
+        sample = np.zeros(self.variable.shape[0], np.int32)
+        for sweep in range(sweeps):
+            for var_samp in range(self.variable.shape[0]):
+                self.sample_and_sgd(var_samp, step)
+            print(sweep + 1)
+            print("Weights:")
+            for (i, w) in enumerate(self.weight):
+                print("    weightId:", i)
+                print("        isFixed:", w["isFixed"])
+                print("        weight: ", w["weight"])
+            print()
+
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
         sample = np.zeros(self.variable.shape[0], np.int32)
@@ -111,7 +125,8 @@ class FactorGraph(object):
             print(i, count[i])
         #return sample
 
-    def sample(self, var_samp):
+
+    def draw_sample(self, var_samp):
         cardinality = self.variable[var_samp]["cardinality"]
         for value in range(cardinality):
             self.Z[value] = math.exp(self.potential(var_samp, value))
@@ -121,7 +136,37 @@ class FactorGraph(object):
 
         z = random.random() * self.Z[cardinality - 1]
         # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
-        self.variable[var_samp]["value"] = np.argmax(self.Z >= z)
+        return np.argmax(self.Z >= z)
+
+    def sample(self, var_samp):
+        # TODO: return if is observation
+        # TODO: return if is evidence and not sampling evidence
+
+        self.variable[var_samp]["value"] = self.draw_sample(var_samp)
+        return self.variable[var_samp]["value"]
+
+    def sample_and_sgd(self, var_samp, step):
+        # TODO: return if is observation
+
+        self.variable[var_samp]["value"] = self.draw_sample(var_samp)
+
+        # TODO: set initialValue
+        # TODO: if isevidence or learn_non_evidence
+
+        for i in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
+            factor_id = self.vmap[i]
+            weight_id = self.factor[factor_id]["weightId"]
+
+            if not self.weight[weight_id]["isFixed"]:
+                # TODO: save time by checking if initialValue and value are equal first?
+                p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"])
+                p1 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["value"])
+                self.weight[weight_id]["weight"] += step * (p0 - p1)
+
+    def eval_factor(self, factor_id, var_samp=-1, value=-1):
+
+
+
 
         return self.variable[var_samp]["value"]
 
@@ -315,8 +360,8 @@ def load(directory=".",
         print("Weights:")
         for (i, w) in enumerate(weight):
             print("    weightId:", i)
-            print("        isFixed:     ", w["isFixed"])
-            print("        initialValue:", w["initialValue"])
+            print("        isFixed:", w["isFixed"])
+            print("        weight: ", w["weight"])
         print()
 
     variable_data = np.memmap(directory + "/" + variablefile, mode="c")
@@ -426,6 +471,7 @@ def main(argv=None):
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
 
+    res = fg.learn(arg.inference, 0.001)
     res = fg.gibbs(arg.inference)
 
 
