@@ -23,12 +23,13 @@ Meta = np.dtype([('weights',        np.int64),
 
 # TODO: uint or int
 Weight  = np.dtype([("isFixed",      np.bool),
-                    ("initialValue", np.float64)])
+                    ("weight", np.float64)])
 Weight_ = numba.from_dtype(Weight)
 #Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 
-Variable  = np.dtype([("isEvidence",   np.bool),
+Variable  = np.dtype([("isEvidence",   np.int8),
                       ("initialValue", np.int32),
+                      ("value",        np.int32),
                       ("dataType",     np.int16),
                       ("cardinality",  np.int32)])
 Variable_ = numba.from_dtype(Variable)
@@ -102,15 +103,15 @@ class FactorGraph(object):
                         ### eval_factor ###
                         ef = 1
                         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-                            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["initialValue"]
+                            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["value"]
                             for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
                                 if v != w:
                                     ef = -1
                                     break
                         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
                             for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["initialValue"]
+                                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
                                 if v == 0:
                                     ef = -1
                                     break
@@ -120,7 +121,7 @@ class FactorGraph(object):
                         ### end eval_factor ###
 
                         # self.factor[self.vmap[i]]["featureValue"] \
-                        p += self.weight[self.factor[self.vmap[k]]["weightId"]]["initialValue"] \
+                        p += self.weight[self.factor[self.vmap[k]]["weightId"]]["weight"] \
                            * ef
                     ### end potential ###
 
@@ -131,9 +132,9 @@ class FactorGraph(object):
 
                 z = random.random() * self.Z[cardinality - 1]
                 # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
-                self.variable[var_samp]["initialValue"] = np.argmax(self.Z >= z)
+                self.variable[var_samp]["value"] = np.argmax(self.Z >= z)
 
-                sample[var_samp] += self.variable[var_samp]["initialValue"]
+                sample[var_samp] += self.variable[var_samp]["value"]
                 ### end sample ###
 
             print(sweep + 1)
@@ -228,7 +229,7 @@ def load_weights(data, nweights, weight):
         initialValue = np.frombuffer(data[(17 * i + 9):(17 * i + 17)], dtype=np.float64)[0]
 
         weight[weightId]["isFixed"] = isFixed
-        weight[weightId]["initialValue"] = initialValue
+        weight[weightId]["weight"] = initialValue
     print("DONE WITH WEIGHTS")
 
 @jit(nopython=True,cache=True)
@@ -256,6 +257,7 @@ def load_variables(data, nvariables, variable):
 
         variable[variableId]["isEvidence"] = isEvidence
         variable[variableId]["initialValue"] = initialValue
+        variable[variableId]["value"] = initialValue
         variable[variableId]["dataType"] = dataType
         variable[variableId]["cardinality"] = cardinality
     print("DONE WITH VARS")
