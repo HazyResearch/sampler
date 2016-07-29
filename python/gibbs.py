@@ -107,14 +107,14 @@ class FactorGraph(object):
                 sample[var_samp] += self.sample(var_samp)
 
 
-            print(sweep + 1)
-            print(np.max(sample))
-            print(np.min(sample))
-            print()
+            #print(sweep + 1)
+            #print(np.max(sample))
+            #print(np.min(sample))
+            #print()
 
-        sample.sort()
-        for i in range(0, self.variable.shape[0], self.variable.shape[0] / 100):
-            print(i, sample[i])
+        #sample.sort()
+        for i in range(0, self.variable.shape[0], max(1, self.variable.shape[0] / 100)):
+            print("Var", i + 1, "/", len(self.variable), ":", sample[i])
         print()
 
         bins = 10
@@ -141,27 +141,33 @@ class FactorGraph(object):
     def sample(self, var_samp):
         # TODO: return if is observation
         # TODO: return if is evidence and not sampling evidence
+        if self.variable[var_samp]["isEvidence"] != 0:
+            return self.variable[var_samp]["value"]
 
         self.variable[var_samp]["value"] = self.draw_sample(var_samp)
         return self.variable[var_samp]["value"]
 
     def sample_and_sgd(self, var_samp, step):
+        # TODO: return none or sampled var?
+
         # TODO: return if is observation
+        if (self.variable[var_samp]["isEvidence"] == 2):
+            return
 
         self.variable[var_samp]["value"] = self.draw_sample(var_samp)
 
         # TODO: set initialValue
         # TODO: if isevidence or learn_non_evidence
+        if self.variable[var_samp]["isEvidence"] == 1:
+            for i in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
+                factor_id = self.vmap[i]
+                weight_id = self.factor[factor_id]["weightId"]
 
-        for i in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
-            factor_id = self.vmap[i]
-            weight_id = self.factor[factor_id]["weightId"]
-
-            if not self.weight[weight_id]["isFixed"]:
-                # TODO: save time by checking if initialValue and value are equal first?
-                p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"])
-                p1 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["value"])
-                self.weight[weight_id]["weight"] += step * (p0 - p1)
+                if not self.weight[weight_id]["isFixed"]:
+                    # TODO: save time by checking if initialValue and value are equal first?
+                    p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"])
+                    p1 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["value"])
+                    self.weight[weight_id]["weight"] += step * (p0 - p1)
 
     def eval_factor(self, factor_id, var_samp=-1, value=-1):
 
@@ -448,6 +454,12 @@ def main(argv=None):
     # TODO: burn-in option
     # TODO: learning options
     # TODO: inference option
+    parser.add_argument("-l", "--learn",
+                        metavar="NUM_LEARN_STEPS",
+                        dest="learn",
+                        default=0,
+                        type=int,
+                        help="number of learning sweeps")
     parser.add_argument("-i", "--inference",
                         metavar="NUM_INFERENCE_STEPS",
                         dest="inference",
@@ -466,12 +478,15 @@ def main(argv=None):
     arg = parser.parse_args(argv)
     print(arg)
 
-    (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, True)
+    (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, False)
     #(meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True)
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
 
-    res = fg.learn(arg.inference, 0.001)
+    # TODO: how to set learning rate
+    # maybe initial, (optional end -- set to initial if missing)
+    # and set method of decay (linear, geometric, ...?)
+    res = fg.learn(arg.learn, 0.01)
     res = fg.gibbs(arg.inference)
 
 
