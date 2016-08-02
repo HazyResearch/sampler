@@ -460,8 +460,21 @@ def main(argv=None):
                         type=int,
                         help="number of inference sweeps")
     # TODO: sample observed variable option
-    # TODO: quiet option
+    parser.add_argument("-q", "--quiet",
+                        #metavar="QUIET",
+                        dest="quiet",
+                        default=False,
+                        action="store_true",
+                        #type=bool,
+                        help="quiet")
     # TODO: verbose option (print all info)
+    parser.add_argument("--verbose",
+    #                    metavar="VERBOSE",
+                        dest="verbose",
+                        default=False,
+                        action="store_true",
+    #                    type=bool,
+                        help="verbose")
     parser.add_argument("--version",
                         action='version',
                         version="%(prog)s 0.0",
@@ -471,11 +484,7 @@ def main(argv=None):
     arg = parser.parse_args(argv)
     print(arg)
 
-    (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, False)
-    print("fstart:", fstart)
-    print("fmap:  ", fmap)
-    print("vstart:", vstart)
-    print("vmap:  ", vmap)
+    (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, not arg.quiet, not arg.verbose)
     #(meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True)
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
