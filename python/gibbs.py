@@ -44,7 +44,7 @@ Variable_ = numba.from_dtype(Variable)
 
 Factor  = np.dtype([("factorFunction", np.int16),
                     ("weightId",       np.int64),
-                    ("featureValue",   np.float64),
+                    ("featureValue",   np.float64), # TODO: This is not used yet
                    ])
 Factor_ = numba.from_dtype(Factor)
 
@@ -63,7 +63,8 @@ spec = [
         ('vstart',         numba.int64[:]),
         ('vmap',           numba.int64[:]),
         ('equalPredicate', numba.int32[:]),
-        ('Z',              numba.float64[:])
+        ('Z',              numba.float64[:]),
+        ('count',          numba.int64[:])
        ]
 
 @jitclass(spec)
@@ -78,6 +79,7 @@ class FactorGraph(object):
         self.vstart = vstart
         self.vmap = vmap
         self.equalPredicate = equalPredicate
+        self.count = np.zeros(self.variable.shape[0], np.int64)
 
         cardinality = 0
         for v in self.variable:
@@ -86,8 +88,6 @@ class FactorGraph(object):
 
 
     def learn(self, sweeps, step):
-        # TODO: give option do not store result, or just store tally
-        sample = np.zeros(self.variable.shape[0], np.int32)
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
                 self.sample_and_sgd(var_samp, step)
@@ -101,10 +101,9 @@ class FactorGraph(object):
 
     def gibbs(self, sweeps):
         # TODO: give option do not store result, or just store tally
-        sample = np.zeros(self.variable.shape[0], np.int32)
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
-                sample[var_samp] += self.sample(var_samp)
+                self.count[var_samp] += self.sample(var_samp)
 
 
             #print(sweep + 1)
@@ -114,15 +113,15 @@ class FactorGraph(object):
 
         #sample.sort()
         for i in range(0, self.variable.shape[0], max(1, self.variable.shape[0] / 100)):
-            print("Var", i + 1, "/", len(self.variable), ":", sample[i])
+            print("Var", i + 1, "/", len(self.variable), ":", self.count[i])
         print()
 
         bins = 10
-        count = np.zeros(bins, dtype=np.int64)
-        for i in range(len(sample)):
-            count[min(sample[i] * bins / sweeps, bins - 1)] += 1
+        hist = np.zeros(bins, dtype=np.int64)
+        for i in range(len(self.count)):
+            hist[min(self.count[i] * bins / sweeps, bins - 1)] += 1
         for i in range(bins):
-            print(i, count[i])
+            print(i, hist[i])
         #return sample
 
 
@@ -473,6 +472,10 @@ def main(argv=None):
     print(arg)
 
     (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True, False)
+    print("fstart:", fstart)
+    print("fmap:  ", fmap)
+    print("vstart:", vstart)
+    print("vmap:  ", vmap)
     #(meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True)
 
     fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
@@ -480,7 +483,7 @@ def main(argv=None):
     # TODO: how to set learning rate
     # maybe initial, (optional end -- set to initial if missing)
     # and set method of decay (linear, geometric, ...?)
-    res = fg.learn(arg.learn, 0.01)
+    res = fg.learn(arg.learn, 0.0001)
     res = fg.gibbs(arg.inference)
 
 
