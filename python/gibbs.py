@@ -169,12 +169,6 @@ class FactorGraph(object):
                     p1 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["value"])
                     self.weight[weight_id]["weight"] += step * (p0 - p1)
 
-    def eval_factor(self, factor_id, var_samp=-1, value=-1):
-
-
-
-
-        return self.variable[var_samp]["value"]
 
     def potential(self, var_samp, value):
         p = 0.0
