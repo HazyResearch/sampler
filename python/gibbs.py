@@ -11,8 +11,6 @@ import sys
 import argparse
 import mmap
 
-zero = 0
-
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
                  ('factors',        np.int64),
@@ -74,7 +72,7 @@ spec = [
 @jitclass(spec)
 class FactorGraph(object):
 
-    def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate):
+    def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate, var_copies, weight_copies):
         self.weight = weight
         self.variable = variable
         self.factor = factor
@@ -85,8 +83,16 @@ class FactorGraph(object):
         self.equalPredicate = equalPredicate
         self.count = np.zeros(self.variable.shape[0], np.int64)
 
-        self.vv = np.zeros((1, self.variable.shape[0]), np.int32)
-        self.wv = np.zeros((1, self.variable.shape[0]), np.float64)
+        # TODO: is there repmat?
+        self.vv = np.zeros((var_copies, self.variable.shape[0]), np.int32)
+        for i in range(var_copies):
+            for j in range(self.variable.shape[0]):
+                self.vv[i][j] = self.variable[j]["initialValue"]
+
+        self.wv = np.zeros((weight_copies, self.variable.shape[0]), np.float64)
+        for i in range(weight_copies):
+            for j in range(self.weight.shape[0]):
+                self.wv[i][j] = self.weight[j]["initialValue"]
 
         cardinality = 0
         for v in self.variable:
@@ -94,23 +100,23 @@ class FactorGraph(object):
         self.Z = np.zeros(cardinality)
 
 
-    def learn(self, sweeps, step):
+    def learn(self, sweeps, step, var_copy=0, weight_copy=0):
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
-                self.sample_and_sgd(var_samp, step)
+                self.sample_and_sgd(var_samp, step, var_copy, weight_copy)
             print(sweep + 1)
             print("Weights:")
             for (i, w) in enumerate(self.weight):
                 print("    weightId:", i)
                 print("        isFixed:", w["isFixed"])
-                print("        weight: ", self.wv[zero][i])
+                print("        weight: ", self.wv[weight_copy][i])
             print()
 
-    def gibbs(self, sweeps):
+    def gibbs(self, sweeps, var_copy=0, weight_copy=0):
         # TODO: give option do not store result, or just store tally
         for sweep in range(sweeps):
             for var_samp in range(self.variable.shape[0]):
-                self.count[var_samp] += self.sample(var_samp)
+                self.count[var_samp] += self.sample(var_samp, var_copy, weight_copy)
 
 
             #print(sweep + 1)
@@ -132,10 +138,10 @@ class FactorGraph(object):
         #return sample
 
 
-    def draw_sample(self, var_samp):
+    def draw_sample(self, var_samp, var_copy=0, weight_copy=0):
         cardinality = self.variable[var_samp]["cardinality"]
         for value in range(cardinality):
-            self.Z[value] = math.exp(self.potential(var_samp, value))
+            self.Z[value] = math.exp(self.potential(var_samp, value, var_copy, weight_copy))
 
         for j in range(1, cardinality):
             self.Z[j] += self.Z[j - 1]
@@ -144,23 +150,23 @@ class FactorGraph(object):
         # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
         return np.argmax(self.Z >= z)
 
-    def sample(self, var_samp):
+    def sample(self, var_samp, var_copy=0, weight_copy=0):
         # TODO: return if is observation
         # TODO: return if is evidence and not sampling evidence
         if self.variable[var_samp]["isEvidence"] != 0:
-            return self.vv[zero][var_samp]
+            return self.vv[var_copy][var_samp]
 
-        self.vv[zero][var_samp] = self.draw_sample(var_samp)
-        return self.vv[zero][var_samp]
+        self.vv[var_copy][var_samp] = self.draw_sample(var_samp, var_copy, weight_copy)
+        return self.vv[var_copy][var_samp]
 
-    def sample_and_sgd(self, var_samp, step):
+    def sample_and_sgd(self, var_samp, step, var_copy=0, weight_copy=0):
         # TODO: return none or sampled var?
 
         # TODO: return if is observation
         if (self.variable[var_samp]["isEvidence"] == 2):
             return
 
-        self.vv[zero][var_samp] = self.draw_sample(var_samp)
+        self.vv[var_copy][var_samp] = self.draw_sample(var_samp, var_copy, weight_copy)
 
         # TODO: set initialValue
         # TODO: if isevidence or learn_non_evidence
@@ -171,20 +177,20 @@ class FactorGraph(object):
 
                 if not self.weight[weight_id]["isFixed"]:
                     # TODO: save time by checking if initialValue and value are equal first?
-                    p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"])
-                    p1 = self.eval_factor(factor_id, var_samp, self.vv[zero][var_samp])
-                    self.wv[zero][weight_id] += step * (p0 - p1)
+                    p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"], var_copy)
+                    p1 = self.eval_factor(factor_id, var_samp, self.vv[var_copy][var_samp], var_copy)
+                    self.wv[weight_copy][weight_id] += step * (p0 - p1)
 
 
-    def potential(self, var_samp, value):
+    def potential(self, var_samp, value, var_copy=0, weight_copy=0):
         p = 0.0
         for k in range(self.vstart[var_samp], self.vstart[var_samp + 1]):
             factor_id = self.vmap[k]
 
 
             # self.factor[self.vmap[i]]["featureValue"] \
-            p += self.wv[zero][self.factor[self.vmap[k]]["weightId"]] \
-               * self.eval_factor(factor_id, var_samp, value)
+            p += self.wv[weight_copy][self.factor[self.vmap[k]]["weightId"]] \
+               * self.eval_factor(factor_id, var_samp, value, var_copy)
         return p
 
     #FUNC_IMPLY_NATURAL = 0,
@@ -196,17 +202,17 @@ class FactorGraph(object):
     #FUNC_AND_CATEGORICAL = 12,
     #FUNC_IMPLY_MLN = 13,
 
-    def eval_factor(self, factor_id, var_samp=-1, value=-1):
+    def eval_factor(self, factor_id, var_samp=-1, value=-1, var_copy=0):
         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.vv[zero][self.fmap[self.fstart[factor_id]]]
+            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.vv[var_copy][self.fmap[self.fstart[factor_id]]]
             for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                w = value if (self.fmap[l] == var_samp) else self.vv[zero][self.fmap[l]]
+                w = value if (self.fmap[l] == var_samp) else self.vv[var_copy][self.fmap[l]]
                 if v != w:
                     return -1
             return 1
         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
             for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                v = value if (self.fmap[l] == var_samp) else self.vv[zero][self.fmap[l]]
+                v = value if (self.fmap[l] == var_samp) else self.vv[var_copy][self.fmap[l]]
                 if v == 0:
                     return -1
             return 1
@@ -494,13 +500,15 @@ def main(argv=None):
     (meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, not arg.quiet, not arg.verbose)
     #(meta, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate) = load(arg.directory, arg.meta, arg.weight, arg.variable, arg.factor, True)
 
-    fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate)
+    var_copies = 1
+    weight_copies = 1
+    fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate, var_copies, weight_copies)
 
     # TODO: how to set learning rate
     # maybe initial, (optional end -- set to initial if missing)
     # and set method of decay (linear, geometric, ...?)
-    res = fg.learn(arg.learn, 0.0001)
-    res = fg.gibbs(arg.inference)
+    res = fg.learn(arg.learn, 0.0001, 0, 0)
+    res = fg.gibbs(arg.inference, 0, 0)
 
 
 if __name__ == "__main__":
