@@ -11,6 +11,8 @@ import sys
 import argparse
 import mmap
 
+zero = 0
+
 Meta = np.dtype([('weights',        np.int64),
                  ('variables',      np.int64),
                  ('factors',        np.int64),
@@ -23,13 +25,13 @@ Meta = np.dtype([('weights',        np.int64),
 
 # TODO: uint or int
 Weight  = np.dtype([("isFixed",      np.bool),
-                    ("weight", np.float64)])
+                    ("initialValue", np.float64)])
 Weight_ = numba.from_dtype(Weight)
 #Weight = Weight.newbyteorder("b") # TODO: This kills numba...
 
 Variable  = np.dtype([("isEvidence",   np.int8),
                       ("initialValue", np.int32),
-                      ("value",        np.int32),
+                      #("value",        np.int32),
                       ("dataType",     np.int16),
                       ("cardinality",  np.int32)])
 Variable_ = numba.from_dtype(Variable)
@@ -57,6 +59,8 @@ spec = [
         #('meta', Meta_[:]), # causes problems
         ('weight',         Weight_[:]),
         ('variable',       Variable_[:]),
+        ('vv',             numba.int32[:,:]), # variable value
+        ('wv',             numba.float64[:,:]), # weight value
         ('factor',         Factor_[:]),
         ('fstart',         numba.int64[:]),
         ('fmap',           numba.int64[:]),
@@ -81,6 +85,9 @@ class FactorGraph(object):
         self.equalPredicate = equalPredicate
         self.count = np.zeros(self.variable.shape[0], np.int64)
 
+        self.vv = np.zeros((1, self.variable.shape[0]), np.int32)
+        self.wv = np.zeros((1, self.variable.shape[0]), np.float64)
+
         cardinality = 0
         for v in self.variable:
             cardinality = max(cardinality, v["cardinality"])
@@ -96,7 +103,7 @@ class FactorGraph(object):
             for (i, w) in enumerate(self.weight):
                 print("    weightId:", i)
                 print("        isFixed:", w["isFixed"])
-                print("        weight: ", w["weight"])
+                print("        weight: ", self.wv[zero][i])
             print()
 
     def gibbs(self, sweeps):
@@ -141,10 +148,10 @@ class FactorGraph(object):
         # TODO: return if is observation
         # TODO: return if is evidence and not sampling evidence
         if self.variable[var_samp]["isEvidence"] != 0:
-            return self.variable[var_samp]["value"]
+            return self.vv[zero][var_samp]
 
-        self.variable[var_samp]["value"] = self.draw_sample(var_samp)
-        return self.variable[var_samp]["value"]
+        self.vv[zero][var_samp] = self.draw_sample(var_samp)
+        return self.vv[zero][var_samp]
 
     def sample_and_sgd(self, var_samp, step):
         # TODO: return none or sampled var?
@@ -153,7 +160,7 @@ class FactorGraph(object):
         if (self.variable[var_samp]["isEvidence"] == 2):
             return
 
-        self.variable[var_samp]["value"] = self.draw_sample(var_samp)
+        self.vv[zero][var_samp] = self.draw_sample(var_samp)
 
         # TODO: set initialValue
         # TODO: if isevidence or learn_non_evidence
@@ -165,8 +172,8 @@ class FactorGraph(object):
                 if not self.weight[weight_id]["isFixed"]:
                     # TODO: save time by checking if initialValue and value are equal first?
                     p0 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["initialValue"])
-                    p1 = self.eval_factor(factor_id, var_samp, self.variable[var_samp]["value"])
-                    self.weight[weight_id]["weight"] += step * (p0 - p1)
+                    p1 = self.eval_factor(factor_id, var_samp, self.vv[zero][var_samp])
+                    self.wv[zero][weight_id] += step * (p0 - p1)
 
 
     def potential(self, var_samp, value):
@@ -176,7 +183,7 @@ class FactorGraph(object):
 
 
             # self.factor[self.vmap[i]]["featureValue"] \
-            p += self.weight[self.factor[self.vmap[k]]["weightId"]]["weight"] \
+            p += self.wv[zero][self.factor[self.vmap[k]]["weightId"]] \
                * self.eval_factor(factor_id, var_samp, value)
         return p
 
@@ -191,15 +198,15 @@ class FactorGraph(object):
 
     def eval_factor(self, factor_id, var_samp=-1, value=-1):
         if self.factor[factor_id]["factorFunction"] == 3: # FUNC_EQUAL
-            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.variable[self.fmap[self.fstart[factor_id]]]["value"]
+            v = value if (self.fmap[self.fstart[factor_id]] == var_samp) else self.vv[zero][self.fmap[self.fstart[factor_id]]]
             for l in range(self.fstart[factor_id] + 1, self.fstart[factor_id + 1]):
-                w = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
+                w = value if (self.fmap[l] == var_samp) else self.vv[zero][self.fmap[l]]
                 if v != w:
                     return -1
             return 1
         elif self.factor[factor_id]["factorFunction"] == 4: # FUNC_ISTRUE
             for l in range(self.fstart[factor_id], self.fstart[factor_id + 1]):
-                v = value if (self.fmap[l] == var_samp) else self.variable[self.fmap[l]]["value"]
+                v = value if (self.fmap[l] == var_samp) else self.vv[zero][self.fmap[l]]
                 if v == 0:
                     return -1
             return 1
@@ -262,7 +269,7 @@ def load_weights(data, nweights, weight):
         initialValue = np.frombuffer(data[(17 * i + 9):(17 * i + 17)], dtype=np.float64)[0]
 
         weight[weightId]["isFixed"] = isFixed
-        weight[weightId]["weight"] = initialValue
+        weight[weightId]["initialValue"] = initialValue
     print("DONE WITH WEIGHTS")
 
 @jit(nopython=True,cache=True)
@@ -290,7 +297,7 @@ def load_variables(data, nvariables, variable):
 
         variable[variableId]["isEvidence"] = isEvidence
         variable[variableId]["initialValue"] = initialValue
-        variable[variableId]["value"] = initialValue
+        #variable[variableId]["value"] = initialValue
         variable[variableId]["dataType"] = dataType
         variable[variableId]["cardinality"] = cardinality
     print("DONE WITH VARS")
