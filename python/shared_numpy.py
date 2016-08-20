@@ -4,6 +4,7 @@ from __future__ import print_function
 import ctypes
 import logging
 import multiprocessing as mp
+from multiprocessing import sharedctypes
 import time
 from numba import jit
 
@@ -13,15 +14,16 @@ import numpy as np
 
 info = mp.get_logger().info
 
-ITER = 10000
+ITER = 1000
 
 def main():
     #logger = mp.log_to_stderr()
     #logger.setLevel(logging.INFO)
 
     # create shared array
-    N, M = 10000, 11
-    shared_arr = mp.Array(ctypes.c_double, N)
+    N, M = 10000000, 2
+    shared_arr = mp.Array(ctypes.c_double, N, lock=True)
+    #shared_arr = sharedctypes.RawArray(ctypes.c_double, N)
     arr = tonumpyarray(shared_arr)
 
     # fill with random values
@@ -30,7 +32,7 @@ def main():
     #arr_orig = arr.copy()
 
     start = time.time()
-    h(arr)
+    h(arr, 0)
     end = time.time()
     print("Time:", end - start)
     print("Range:", min(arr), "-", max(arr))
@@ -60,6 +62,7 @@ def init(shared_arr_):
 
 def tonumpyarray(mp_arr):
     return np.frombuffer(mp_arr.get_obj())
+    #return np.frombuffer(mp_arr)
 
 def f(i):
     """synchronized."""
@@ -70,11 +73,11 @@ def g(i):
     """no synchronization."""
     info("start %s" % (i,))
     arr = tonumpyarray(shared_arr)
-    h(arr)
+    h(arr, i)
     info("end   %s" % (i,))
 
 @jit(nopython=True,cache=True,nogil=True)
-def h(arr):
+def h(arr, index):
     for it in range(ITER):
         for i in range(len(arr)):
             arr[i] += 1
