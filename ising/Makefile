@@ -6,7 +6,7 @@ all: ising
 ising: ising.o
 
 clean:
-	rm -f *~ *.o ising
+	rm -f *~ *.o ising graph.*
 
 .PHONY: all clean
 
