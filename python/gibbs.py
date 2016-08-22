@@ -129,12 +129,13 @@ class FactorGraph(object):
             print("Var", i + 1, "/", len(self.variable), ":", self.count[i])
         print()
 
-        bins = 10
-        hist = np.zeros(bins, dtype=np.int64)
-        for i in range(len(self.count)):
-            hist[min(self.count[i] * bins / sweeps, bins - 1)] += 1
-        for i in range(bins):
-            print(i, hist[i])
+        if sweeps != 0:
+            bins = 10
+            hist = np.zeros(bins, dtype=np.int64)
+            for i in range(len(self.count)):
+                hist[min(self.count[i] * bins / sweeps, bins - 1)] += 1
+            for i in range(bins):
+                print(i, hist[i])
         #return sample
 
 
