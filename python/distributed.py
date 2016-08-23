@@ -22,7 +22,7 @@ def recv_array(socket, flags=0, copy=True, track=False):
     md = socket.recv_json(flags=flags)
     msg = socket.recv(flags=flags, copy=copy, track=track)
     buf = buffer(msg)
-    A = np.frombuffer(buf, dtype=md['dtype'])
+    A = np.frombuffer(buf, dtype=eval(md['dtype']))
     return A.reshape(md['shape'])
 
 def server(argv=None):
