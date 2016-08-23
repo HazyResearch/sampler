@@ -99,6 +99,9 @@ class FactorGraph(object):
             cardinality = max(cardinality, v["cardinality"])
         self.Z = np.zeros(cardinality)
 
+    def clear(self):
+        for i in range(self.count.shape[0]):
+            self.count[i] = 0
 
     def learn(self, sweeps, step, var_copy=0, weight_copy=0):
         for sweep in range(sweeps):
