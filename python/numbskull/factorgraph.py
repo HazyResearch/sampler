@@ -2,6 +2,8 @@ import numpy as np
 from inference import *
 from learning import *
 from timer import Timer
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
 class FactorGraph(object):
 	def __init__(self, weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate, var_copies, weight_copies, fid, workers):
@@ -23,11 +25,15 @@ class FactorGraph(object):
 		self.fid = fid
 		assert(workers > 0)
 		self.threads = workers
-		self.inference_time = 0.0
-		self.learning_time = 0.0
+		self.threadpool = ThreadPoolExecutor(self.threads)
+		self.inference_epoch_time = 0.0
+		self.inference_total_time = 0.0
+		self.learning_epoch_time = 0.0
+		self.learning_total_time = 0.0
 
 	def clear(self):
 		self.count[:] = 0
+		self.threadpool.shutdown()
 
 	def burnIn(self, epochs, var_copy=0, weight_copy=0):
 		print ("FACTOR "+str(self.fid)+": STARTED BURN-IN...")
@@ -36,6 +42,7 @@ class FactorGraph(object):
 		print ("FACTOR "+str(self.fid)+": DONE WITH BURN-IN")
 
 	def diagnostics(self, epochs):
+		print('Inference took %.03f sec.' % self.inference_total_time)
 		bins = 10
 	        hist = np.zeros(bins, dtype=np.int64)
 		for i in range(len(self.count)):
@@ -44,7 +51,7 @@ class FactorGraph(object):
 		    print(i, hist[i])
 
 	def diagnosticsLearning(self,weight_copy=0):
-		print('Learning epoch took %.03f sec.' % self.learning_time)
+		print('Learning epoch took %.03f sec.' % self.learning_epoch_time)
             	print("Weights:")
 		for (i, w) in enumerate(self.weight):
 			print("    weightId:", i)
@@ -61,18 +68,12 @@ class FactorGraph(object):
 		print ("FACTOR "+str(self.fid)+": STARTED INFERENCE")
 		for ep in range(epochs):
 			with Timer() as timer:
-				activeThreads = []
-				# Initialize and start all threads
-				for threadID in range(self.threads):
-					t = threading.Thread(target=gibbsthread, args=[threadID, self.threads, var_copy, weight_copy, self.weight, self.variable, self.factor, self.fstart, self.fmap, self.vstart, self.vmap, self.equalPred, self.Z, self.count, self.var_value, self.weight_value, False]) # NUMBA-based method. Implemented in inference.py
-					activeThreads.append(t)
-					t.start()
-				# Wait for threads to finish
-				for t in activeThreads:
-					t.join()
-			self.inference_time = timer.interval
+				future_to_samples = {self.threadpool.submit(gibbsthread, threadID, self.threads, var_copy, weight_copy, self.weight, self.variable, self.factor, self.fstart, self.fmap, self.vstart, self.vmap, self.equalPred, self.Z, self.count, self.var_value, self.weight_value, False): threadID for threadID in range(self.threads)}
+				concurrent.futures.wait(future_to_samples)
+			self.inference_epoch_time = timer.interval
+			self.inference_total_time += timer.interval
 			if diagnostics:
-				print('Inference epoch took %.03f sec.' % self.inference_time)
+				print('Inference epoch took %.03f sec.' % self.inference_epoch_time)
 		print ("FACTOR "+str(self.fid)+": DONE WITH INFERENCE")
 		if diagnostics:
 			self.diagnostics(epochs)
@@ -86,16 +87,10 @@ class FactorGraph(object):
 		print ("FACTOR "+str(self.fid)+": STARTED LEARNING")
 		for ep in range(epochs):
 			with Timer() as timer:
-				# Start all threads for new epoch
-				activeThreads = []
-				for threadID in range(self.threads):
-					t = threading.Thread(target=learnthread, args=[threadID, self.threads, stepsize, var_copy, weight_copy, self.weight, self.variable, self.factor, self.fstart, self.fmap, self.vstart, self.vmap, self.equalPred, self.Z, self.count, self.var_value, self.weight_value])
-					t.start()
-					activeThreads.append(t)
-				# Wait for threads to finish
-				for t in activeThreads:
-					t.join()
-			self.learning_time = timer.interval
+				future_to_learn = {self.threadpool.submit(learnthread, threadID, self.threads, stepsize, var_copy, weight_copy, self.weight, self.variable, self.factor, self.fstart, self.fmap, self.vstart, self.vmap, self.equalPred, self.Z, self.count, self.var_value, self.weight_value): threadID for threadID in range(self.threads)}
+                                concurrent.futures.wait(future_to_learn)
+			self.learning_epoch_time = timer.interval
+			self.learning_total_time += timer.interval
 			if diagnostics:
 				print ("FACTOR "+str(self.fid)+": EPOCH "+str(ep))
 				self.diagnosticsLearning(weight_copy)

@@ -4,7 +4,6 @@ from numba import jit
 import numpy as np
 import math
 import random
-import threading
 from inference import draw_sample, eval_factor 
 
 @jit(nopython=True,cache=True,nogil=True)

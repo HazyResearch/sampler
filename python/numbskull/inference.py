@@ -4,7 +4,6 @@ from numba import jit
 import numpy as np
 import math
 import random
-import threading
 
 
 @jit(nopython=True,cache=True,nogil=True)
