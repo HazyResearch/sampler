@@ -15,18 +15,17 @@ def learnthread(shardID, nshards, step, var_copy, weight_copy, weight, variable,
         end   = min(((nvar / nshards) +1) * (shardID + 1), nvar)
 	
         for var_samp in range(start,end):
-        	sample_and_sgd(var_samp, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
+		if variable[var_samp]["isEvidence"] == 2:
+			pass
+		else:
+        		sample_and_sgd(var_samp, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
 
 
 
 @jit(nopython=True,cache=True,nogil=True)
 def sample_and_sgd(var_samp, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value):
         # TODO: return none or sampled var?
-
         # TODO: return if is observation
-        if (variable[var_samp]["isEvidence"] == 2):
-            return
-
         var_value[var_copy][var_samp] = draw_sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
 
         # TODO: set initialValue

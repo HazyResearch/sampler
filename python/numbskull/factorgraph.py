@@ -42,7 +42,7 @@ class FactorGraph(object):
 		print ("FACTOR "+str(self.fid)+": DONE WITH BURN-IN")
 
 	def diagnostics(self, epochs):
-		print('Inference took %.03f sec.' % self.inference_total_time)
+		print('Inference took %.04f sec.' % self.inference_total_time)
 		bins = 10
 	        hist = np.zeros(bins, dtype=np.int64)
 		for i in range(len(self.count)):
@@ -51,7 +51,7 @@ class FactorGraph(object):
 		    print(i, hist[i])
 
 	def diagnosticsLearning(self,weight_copy=0):
-		print('Learning epoch took %.03f sec.' % self.learning_epoch_time)
+		print('Learning epoch took %.04f sec.' % self.learning_epoch_time)
             	print("Weights:")
 		for (i, w) in enumerate(self.weight):
 			print("    weightId:", i)
@@ -73,7 +73,7 @@ class FactorGraph(object):
 			self.inference_epoch_time = timer.interval
 			self.inference_total_time += timer.interval
 			if diagnostics:
-				print('Inference epoch took %.03f sec.' % self.inference_epoch_time)
+				print('Inference epoch took %.04f sec.' % self.inference_epoch_time)
 		print ("FACTOR "+str(self.fid)+": DONE WITH INFERENCE")
 		if diagnostics:
 			self.diagnostics(epochs)

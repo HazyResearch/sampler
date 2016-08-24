@@ -3,43 +3,34 @@ import numba
 from numba import jit
 import numpy as np
 import math
-import random
-
 
 @jit(nopython=True,cache=True,nogil=True)
 def gibbsthread(shardID, nshards, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value, burnin):
         # Indentify start and end variable
-
         nvar  = variable.shape[0]
         start = ((nvar / nshards) + 1) * shardID
         end   = min(((nvar / nshards) +1) * (shardID + 1), nvar)
         # TODO: give option do not store result, or just store tally
         for var_samp in range(start,end):
-		v = sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
-		if not burnin:
-			count[var_samp] += v
-
-@jit(nopython=True,cache=True,nogil=True)
-def sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value):
-        # TODO: return if is observation
-        # TODO: return if is evidence and not sampling evidence
-        if variable[var_samp]["isEvidence"] != 0:
-            return var_value[var_copy][var_samp]
-
-        var_value[var_copy][var_samp] = draw_sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
-        return var_value[var_copy][var_samp]
+		# TODO: sample evidence
+		# TODO: observation
+		if variable[var_samp]["isEvidence"] == 0:
+			v = draw_sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
+			var_value[var_copy][var_samp] = v
+			if not burnin:
+				count[var_samp] += v
 
 
 @jit(nopython=True,cache=True,nogil=True)
 def draw_sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value):
         cardinality = variable[var_samp]["cardinality"]
         for value in range(cardinality):
-            Z[value] = math.exp(potential(var_samp, value, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value))
+            Z[value] = np.exp(potential(var_samp, value, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value))
 
         for j in range(1, cardinality):
             Z[j] += Z[j - 1]
 
-        z = random.random() * Z[cardinality - 1]
+        z = np.random.rand() * Z[cardinality - 1]
         # TODO: I think this looks at the full vector, will be slow if one var has high cardinality
         return np.argmax(Z >= z)
 
