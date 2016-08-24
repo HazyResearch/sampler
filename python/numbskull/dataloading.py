@@ -108,3 +108,4 @@ def load_factors(data, nfactors, factors, fstart, fmap, equalPredicate):
         #isPositive2     bool    1
         #info += [(factor_type, arity, variable_id.tolist(), equal_predicate.tolist(), weight_id, feature_value)]
     print("DONE WITH FACTORS")
+

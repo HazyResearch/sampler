@@ -9,92 +9,92 @@ import numpy as np
 
 class NumbSkull(object):
 
-	def __init__(self, args=None):
-		self.args = args
-		self.factorGraphs = []
+    def __init__(self, args=None):
+        self.args = args
+        self.factorGraphs = []
 
-	def loadFGFromFile(self, var_copies=1, weight_copies=1):
-		# init necessary input arguments
-		directory    	= self.args.directory
-		metafile     	= self.args.meta
-		weightfile   	= self.args.weight
-		variablefile 	= self.args.variable
-		factorfile      = self.args.factor
-		print_info	= self.args.quiet
-		print_only_meta	= self.args.verbose
+    def loadFGFromFile(self, var_copies=1, weight_copies=1):
+        # init necessary input arguments
+        directory       = self.args.directory
+        metafile        = self.args.meta
+        weightfile      = self.args.weight
+        variablefile    = self.args.variable
+        factorfile      = self.args.factor
+        print_info      = self.args.quiet
+        print_only_meta = self.args.verbose
 
-		# load metadata
-		meta = np.loadtxt(directory + "/" + metafile,
+        # load metadata
+        meta = np.loadtxt(directory + "/" + metafile,
                       delimiter=',',
                       dtype=Meta)
-		meta = meta[()]
+        meta = meta[()]
 
-		if print_info:
-			print("Meta:")
-			print("    weights:  ", meta["weights"])
-			print("    variables:", meta["variables"])
-			print("    factors:  ", meta["factors"])
-			print("    edges:    ", meta["edges"])
-			print()
-	
-		# load weights	
-		weight_data = np.memmap(directory + "/" + weightfile, mode="c")
-	   	weight = np.empty(meta["weights"], Weight)
-		
-		load_weights(weight_data, meta["weights"], weight) # NUMBA-based function. Defined in dataloading.py
-		if print_info and not print_only_meta:
-			print("Weights:")
-			for (i, w) in enumerate(weight):
-			    print("    weightId:", i)
-			    print("        isFixed:", w["isFixed"])
-			    print("        weight: ", w["weight"])
-			print()
+        if print_info:
+            print("Meta:")
+            print("    weights:  ", meta["weights"])
+            print("    variables:", meta["variables"])
+            print("    factors:  ", meta["factors"])
+            print("    edges:    ", meta["edges"])
+            print()
 
-		# load variables
-		variable_data = np.memmap(directory + "/" + variablefile, mode="c")
-	    	variable = np.empty(meta["variables"], Variable)
-	    	load_variables(variable_data, meta["variables"], variable) #NUMBA-based method. Defined in dataloading.py
-		if print_info and not print_only_meta:
-			print("Variables:")
-			for (i, v) in enumerate(variable):
-			    print("    variableId:", i)
-			    print("        isEvidence:  ", v["isEvidence"])
-			    print("        initialValue:", v["initialValue"])
-			    print("        dataType:    ", v["dataType"], "(", dataType(v["dataType"]), ")")
-			    print("        cardinality: ", v["cardinality"])
-			    print()
-			
-		# load factors
-		factor_data = np.memmap(directory + "/" + factorfile, mode="c")
-	  	factor = np.empty(meta["factors"], Factor)
-		fstart = np.zeros(meta["factors"] + 1, np.int64)
-		fmap = np.zeros(meta["edges"], np.int64)
-	        equalPredicate = np.zeros(meta["edges"], np.int32)
-	        load_factors(factor_data, meta["factors"], factor, fstart, fmap, equalPredicate) #Numba-based method. Defined in dataloading.py
-		
-		# generate variable-to-factor map
-		vstart = np.zeros(meta["variables"] + 1, np.int64)
-	    	vmap = np.zeros(meta["edges"], np.int64)
-    		compute_var_map(fstart, fmap, vstart, vmap) #Numba-based method. Defined in dataloading.py
+        # load weights
+        weight_data = np.memmap(directory + "/" + weightfile, mode="c")
+        weight = np.empty(meta["weights"], Weight)
 
-		fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate, var_copies, weight_copies, len(self.factorGraphs), self.args.threads)
-		self.factorGraphs.append(fg)
+        load_weights(weight_data, meta["weights"], weight) # NUMBA-based function. Defined in dataloading.py
+        if print_info and not print_only_meta:
+            print("Weights:")
+            for (i, w) in enumerate(weight):
+                print("    weightId:", i)
+                print("        isFixed:", w["isFixed"])
+                print("        weight: ", w["weight"])
+            print()
 
-	def getFactorGraph(self, fgID=0):
-		return self.factorGraphs[fgID]
-		
-	def inference(self,fgID=0):
-		burnin = self.args.burnin
-		epochs = self.args.inference
-		
-		self.factorGraphs[fgID].inference(burnin,epochs,diagnostics=True)
-	
-	def learning(self,fgID=0):
-		burnin = self.args.burnin
-		learning_epochs = self.args.learn
-		stepsize = self.args.stepsize
-	
-		self.factorGraphs[fgID].learn(burnin,learning_epochs,stepsize,diagnostics=True)
+            # load variables
+            variable_data = np.memmap(directory + "/" + variablefile, mode="c")
+            variable = np.empty(meta["variables"], Variable)
+            load_variables(variable_data, meta["variables"], variable) #NUMBA-based method. Defined in dataloading.py
+            if print_info and not print_only_meta:
+                print("Variables:")
+                for (i, v) in enumerate(variable):
+                    print("    variableId:", i)
+                    print("        isEvidence:  ", v["isEvidence"])
+                    print("        initialValue:", v["initialValue"])
+                    print("        dataType:    ", v["dataType"], "(", dataType(v["dataType"]), ")")
+                    print("        cardinality: ", v["cardinality"])
+                    print()
+
+            # load factors
+            factor_data = np.memmap(directory + "/" + factorfile, mode="c")
+            factor = np.empty(meta["factors"], Factor)
+            fstart = np.zeros(meta["factors"] + 1, np.int64)
+            fmap = np.zeros(meta["edges"], np.int64)
+            equalPredicate = np.zeros(meta["edges"], np.int32)
+            load_factors(factor_data, meta["factors"], factor, fstart, fmap, equalPredicate) #Numba-based method. Defined in dataloading.py
+
+            # generate variable-to-factor map
+            vstart = np.zeros(meta["variables"] + 1, np.int64)
+            vmap = np.zeros(meta["edges"], np.int64)
+            compute_var_map(fstart, fmap, vstart, vmap) #Numba-based method. Defined in dataloading.py
+
+        fg = FactorGraph(weight, variable, factor, fstart, fmap, vstart, vmap, equalPredicate, var_copies, weight_copies, len(self.factorGraphs), self.args.threads)
+        self.factorGraphs.append(fg)
+
+    def getFactorGraph(self, fgID=0):
+        return self.factorGraphs[fgID]
+
+    def inference(self,fgID=0):
+        burnin = self.args.burnin
+        epochs = self.args.inference
+
+        self.factorGraphs[fgID].inference(burnin,epochs,diagnostics=True)
+
+    def learning(self,fgID=0):
+        burnin = self.args.burnin
+        learning_epochs = self.args.learn
+        stepsize = self.args.stepsize
+
+        self.factorGraphs[fgID].learn(burnin,learning_epochs,stepsize,diagnostics=True)
 
 
 def main(argv=None):
@@ -147,7 +147,7 @@ def main(argv=None):
                         type=int,
                         help="number of inference epochs")
     parser.add_argument("-s", "--stepsize",
-			metavar="LEARNING_STEPSIZE",
+                        metavar="LEARNING_STEPSIZE",
                         dest="stepsize",
                         default=0,
                         type=float,
@@ -191,3 +191,4 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+

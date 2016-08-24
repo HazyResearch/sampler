@@ -16,3 +16,4 @@ Factor  = np.dtype([("factorFunction", np.int16),
                     ("weightId",       np.int64),
                     ("featureValue",   np.float64),
                    ])
+

@@ -4,3 +4,4 @@ ns = numbskull.main(args)
 ns.loadFGFromFile()
 ns.learning()
 ns.inference()
+
