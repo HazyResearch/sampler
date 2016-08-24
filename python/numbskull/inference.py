@@ -8,15 +8,14 @@ import threading
 
 
 @jit(nopython=True,cache=True,nogil=True)
-def gibbsthread(shardID, nshards, sweeps, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value, burnin):
+def gibbsthread(shardID, nshards, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value, burnin):
         # Indentify start and end variable
 
         nvar  = variable.shape[0]
         start = ((nvar / nshards) + 1) * shardID
         end   = min(((nvar / nshards) +1) * (shardID + 1), nvar)
         # TODO: give option do not store result, or just store tally
-        for sweep in range(sweeps):
-            for var_samp in range(start,end):
+        for var_samp in range(start,end):
 		v = sample(var_samp, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
 		if not burnin:
 			count[var_samp] += v

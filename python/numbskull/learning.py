@@ -8,16 +8,15 @@ import threading
 from inference import draw_sample, eval_factor 
 
 @jit(nopython=True,cache=True,nogil=True)
-def learnthread(shardID, nshards, sweeps, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value):
+def learnthread(shardID, nshards, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value):
 	
 	# Identify start and end variable
 	nvar  = variable.shape[0]
         start = ((nvar / nshards) + 1) * shardID
         end   = min(((nvar / nshards) +1) * (shardID + 1), nvar)
 	
-        for sweep in range(sweeps):
-            for var_samp in range(start,end):
-                sample_and_sgd(var_samp, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
+        for var_samp in range(start,end):
+        	sample_and_sgd(var_samp, step, var_copy, weight_copy, weight, variable, factor, fstart, fmap, vstart, vmap, equalPred, Z, count, var_value, weight_value)
 
 
 

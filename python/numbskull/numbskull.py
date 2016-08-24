@@ -87,8 +87,7 @@ class NumbSkull(object):
 		burnin = self.args.burnin
 		epochs = self.args.inference
 		
-		self.factorGraphs[fgID].inference(burnin,epochs)
-		self.factorGraphs[fgID].diagnostics(epochs)
+		self.factorGraphs[fgID].inference(burnin,epochs,diagnostics=True)
 	
 	def learning(self,fgID=0):
 		burnin = self.args.burnin
