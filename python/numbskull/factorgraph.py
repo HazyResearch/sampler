@@ -88,7 +88,7 @@ class FactorGraph(object):
         for ep in range(epochs):
             with Timer() as timer:
                 future_to_learn = {self.threadpool.submit(learnthread, threadID, self.threads, stepsize, var_copy, weight_copy, self.weight, self.variable, self.factor, self.fstart, self.fmap, self.vstart, self.vmap, self.equalPred, self.Z, self.count, self.var_value, self.weight_value): threadID for threadID in range(self.threads)}
-                                concurrent.futures.wait(future_to_learn)
+                concurrent.futures.wait(future_to_learn)
             self.learning_epoch_time = timer.interval
             self.learning_total_time += timer.interval
             if diagnostics:
